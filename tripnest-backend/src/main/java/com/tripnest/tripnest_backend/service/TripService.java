@@ -4,14 +4,19 @@ import com.tripnest.tripnest_backend.dto.TripRequest;
 import com.tripnest.tripnest_backend.dto.TripResponse;
 import com.tripnest.tripnest_backend.entity.Destination;
 import com.tripnest.tripnest_backend.entity.Trip;
+import com.tripnest.tripnest_backend.entity.TripMember;
 import com.tripnest.tripnest_backend.entity.User;
 import com.tripnest.tripnest_backend.repository.DestinationRepository;
+import com.tripnest.tripnest_backend.repository.TripMemberRepository;
 import com.tripnest.tripnest_backend.repository.TripRepository;
 import com.tripnest.tripnest_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -20,6 +25,8 @@ public class TripService {
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
     private final DestinationRepository destinationRepository;
+    private final TripMemberRepository tripMemberRepository;
+    private final TripAccessService tripAccessService;
 
     public TripResponse createTrip(TripRequest request, String userEmail) {
         User user = getUserByEmail(userEmail);
@@ -48,20 +55,42 @@ public class TripService {
 
     public List<TripResponse> getMyTrips(String userEmail) {
         User user = getUserByEmail(userEmail);
-        return tripRepository.findByOwnerId(user.getId()).stream()
-                .map(this::mapToResponse)
-                .toList();
+        Map<Integer, Trip> tripMap = new LinkedHashMap<>();
+
+        // 1. Owned trips
+        List<Trip> owned = tripRepository.findByOwnerId(user.getId());
+        for (Trip t : owned) {
+            tripMap.put(t.getId(), t);
+        }
+
+        // 2. Member trips
+        List<TripMember> memberships = tripMemberRepository.findByUserId(user.getId());
+        for (TripMember tm : memberships) {
+            Trip t = tm.getTrip();
+            if (t != null) {
+                tripMap.put(t.getId(), t);
+            }
+        }
+
+        return tripMap.values().stream().map(this::mapToResponse).toList();
     }
 
     public TripResponse getTripById(Integer id, String userEmail) {
         Trip trip = getTripEntityById(id);
-        verifyOwnership(trip, userEmail);
+        User user = getUserByEmail(userEmail);
+
+        // Reusable unified access check across modules
+        tripAccessService.verifyAccess(trip, user);
+
         return mapToResponse(trip);
     }
 
     public TripResponse updateTrip(Integer id, TripRequest request, String userEmail) {
         Trip trip = getTripEntityById(id);
-        verifyOwnership(trip, userEmail);
+        User user = getUserByEmail(userEmail);
+
+        // Reusable unified access check
+        tripAccessService.verifyAccess(trip, user);
 
         if (request.getDestinationId() != null) {
             Destination destination = destinationRepository.findById(request.getDestinationId())
@@ -82,8 +111,23 @@ public class TripService {
 
     public void deleteTrip(Integer id, String userEmail) {
         Trip trip = getTripEntityById(id);
-        verifyOwnership(trip, userEmail);
+        User user = getUserByEmail(userEmail);
+
+        // Deleting the entire trip is restricted to Trip Owner or Group Admin
+        tripAccessService.verifyGroupAdminOrOwner(trip, user);
+
         tripRepository.delete(trip);
+    }
+
+    public List<TripResponse> searchTripsByName(String name) {
+        if (name == null || name.isBlank()) {
+            return tripRepository.findAll().stream().map(this::mapToResponse).toList();
+        }
+        String query = name.toLowerCase().trim();
+        return tripRepository.findAll().stream()
+                .filter(t -> t.getTitle() != null && t.getTitle().toLowerCase().contains(query))
+                .map(this::mapToResponse)
+                .toList();
     }
 
     private User getUserByEmail(String email) {
@@ -94,15 +138,6 @@ public class TripService {
     private Trip getTripEntityById(Integer id) {
         return tripRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Trip not found with id: " + id));
-    }
-
-    private void verifyOwnership(Trip trip, String userEmail) {
-        User user = getUserByEmail(userEmail);
-        // Allow owners or administrators
-        if (!trip.getOwner().getId().equals(user.getId()) &&
-                !"ADMINISTRATOR".equals(user.getRole().getName())) {
-            throw new RuntimeException("You do not have permission to access or modify this trip");
-        }
     }
 
     private TripResponse mapToResponse(Trip t) {

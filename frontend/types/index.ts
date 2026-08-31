@@ -36,6 +36,8 @@ export interface Itinerary {
 export interface Trip {
   id: number;
   title: string;
+  ownerId?: number;
+  ownerName?: string;
   destination: Destination | null;
   startDate: string;
   endDate: string;
@@ -72,4 +74,27 @@ export interface Expense {
     name: string;
     email: string;
   };
+}
+
+export type TripRole = "MEMBER" | "GROUP_ADMIN";
+
+export interface TripMember {
+  id: number;
+  tripId: number;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  role: TripRole;
+  joinedAt?: string;
+}
+
+export interface JoinRequest {
+  id: number;
+  tripId: number;
+  tripTitle: string;
+  userId: number;
+  userName: string;
+  userEmail: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt?: string;
 }

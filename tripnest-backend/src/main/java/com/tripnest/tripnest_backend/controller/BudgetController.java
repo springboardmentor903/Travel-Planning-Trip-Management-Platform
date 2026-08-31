@@ -4,13 +4,13 @@ import com.tripnest.tripnest_backend.entity.Budget;
 import com.tripnest.tripnest_backend.service.BudgetService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 
 @RestController
 @RequestMapping("/api/budgets")
-@CrossOrigin(origins = "http://localhost:5173")
 public class BudgetController {
 
     private final BudgetService budgetService;
@@ -24,12 +24,16 @@ public class BudgetController {
     public ResponseEntity<Budget> createBudget(
             @RequestParam Integer tripId,
             @RequestParam BigDecimal totalBudget,
-            @RequestParam(required = false, defaultValue = "USD") String currency) {
+            @RequestParam(required = false, defaultValue = "USD") String currency,
+            Authentication authentication) {
+
+        String userEmail = authentication != null ? authentication.getName() : null;
 
         Budget budget = budgetService.createBudget(
                 tripId,
                 totalBudget,
-                currency
+                currency,
+                userEmail
         );
 
         return ResponseEntity
@@ -43,13 +47,17 @@ public class BudgetController {
             @PathVariable Integer id,
             @RequestParam BigDecimal totalBudget,
             @RequestParam(required = false) String currency,
-            @RequestParam(required = false) BigDecimal totalSpent) {
+            @RequestParam(required = false) BigDecimal totalSpent,
+            Authentication authentication) {
+
+        String userEmail = authentication != null ? authentication.getName() : null;
 
         Budget budget = budgetService.updateBudget(
                 id,
                 totalBudget,
                 currency,
-                totalSpent
+                totalSpent,
+                userEmail
         );
 
         return ResponseEntity.ok(budget);
@@ -58,10 +66,13 @@ public class BudgetController {
     // GET BUDGET BY TRIP
     @GetMapping("/trip/{tripId}")
     public ResponseEntity<Budget> getBudgetByTrip(
-            @PathVariable Integer tripId) {
+            @PathVariable Integer tripId,
+            Authentication authentication) {
+
+        String userEmail = authentication != null ? authentication.getName() : null;
 
         return ResponseEntity.ok(
-                budgetService.getBudgetByTripId(tripId)
+                budgetService.getBudgetByTripId(tripId, userEmail)
         );
     }
 }

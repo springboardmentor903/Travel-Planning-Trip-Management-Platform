@@ -40,6 +40,11 @@ public class TripController {
         return ResponseEntity.ok(tripService.updateTrip(id, request, authentication.getName()));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<List<TripResponse>> searchTrips(@RequestParam(required = false) String name) {
+        return ResponseEntity.ok(tripService.searchTripsByName(name));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTrip(@PathVariable Integer id, Authentication authentication) {
         tripService.deleteTrip(id, authentication.getName());

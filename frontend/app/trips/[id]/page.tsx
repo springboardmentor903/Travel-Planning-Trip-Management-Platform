@@ -4,7 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api, { getErrorMessage } from "@/lib/api";
-import { Trip, Itinerary, Activity, WeatherInfo, Budget, Expense } from "@/types";
+import { Trip, Itinerary, Activity, WeatherInfo, Budget, Expense, TripMember, JoinRequest, UserProfile } from "@/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
@@ -16,7 +16,7 @@ import {
   LinearScale,
   BarElement,
 } from "chart.js";
-import { Pie, Bar } from "react-chartjs-2";
+import { Pie } from "react-chartjs-2";
 import {
   ArrowLeft,
   Calendar,
@@ -26,7 +26,6 @@ import {
   Plus,
   Edit2,
   Trash2,
-  CloudSun,
   Loader2,
   AlertCircle,
   X,
@@ -35,7 +34,15 @@ import {
   Wallet,
   Receipt,
   Tag,
+  Users,
+  UserPlus,
+  ShieldCheck,
+  UserCheck,
   Check,
+  UserX,
+  Mail,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
 
 ChartJS.register(ArcElement, ChartTooltip, ChartLegend, CategoryScale, LinearScale, BarElement);
@@ -54,21 +61,25 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
   const router = useRouter();
 
   const [trip, setTrip] = useState<Trip | null>(null);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [weather, setWeather] = useState<WeatherInfo | null>(null);
   const [budget, setBudget] = useState<Budget | null>(null);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [categorySummary, setCategorySummary] = useState<Record<string, number>>({});
+  const [members, setMembers] = useState<TripMember[]>([]);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // State for Add Day Form
+  // Add Day State
   const [showAddDayModal, setShowAddDayModal] = useState(false);
   const [dayNumber, setDayNumber] = useState<number>(1);
   const [dayDate, setDayDate] = useState<string>("");
   const [addingDay, setAddingDay] = useState(false);
 
-  // State for Activity Modal (Add / Edit)
+  // Activity Modal State
   const [showActivityModal, setShowActivityModal] = useState(false);
   const [activeItineraryId, setActiveItineraryId] = useState<number | null>(null);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
@@ -79,13 +90,13 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
   const [cost, setCost] = useState("");
   const [savingActivity, setSavingActivity] = useState(false);
 
-  // State for Budget Form
+  // Budget Form State
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [totalBudgetInput, setTotalBudgetInput] = useState("");
   const [currencyInput, setCurrencyInput] = useState("USD");
   const [savingBudget, setSavingBudget] = useState(false);
 
-  // State for Expense Modal (Add / Edit)
+  // Expense Modal State
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [expenseCategory, setExpenseCategory] = useState("Transportation");
@@ -93,6 +104,27 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
   const [expenseDate, setExpenseDate] = useState("");
   const [expenseReceiptLink, setExpenseReceiptLink] = useState("");
   const [savingExpense, setSavingExpense] = useState(false);
+
+  // Member Management & Invite Modal State
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"MEMBER" | "GROUP_ADMIN">("MEMBER");
+  const [inviting, setInviting] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+
+  // Member Removal Confirmation Modal State
+  const [memberToRemove, setMemberToRemove] = useState<TripMember | null>(null);
+  const [removingMember, setRemovingMember] = useState(false);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const res = await api.get("/user/profile");
+      setCurrentUser(res.data);
+    } catch (e) {
+      console.log("Could not fetch current user profile:", e);
+    }
+  };
 
   const fetchTripDetails = async () => {
     setLoading(true);
@@ -105,7 +137,6 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
       const itinRes = await api.get(`/itineraries/trip/${id}`);
       const fetchedItin: Itinerary[] = Array.isArray(itinRes.data) ? itinRes.data : [];
 
-      // Fetch activities for each itinerary day
       const itinWithActivities = await Promise.all(
         fetchedItin.map(async (itin) => {
           try {
@@ -120,7 +151,6 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
       itinWithActivities.sort((a, b) => a.dayNumber - b.dayNumber);
       setItineraries(itinWithActivities);
 
-      // Next day number default
       const nextDay = itinWithActivities.length > 0 ? Math.max(...itinWithActivities.map((i) => i.dayNumber)) + 1 : 1;
       setDayNumber(nextDay);
       if (tripRes.data.startDate) {
@@ -135,8 +165,8 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
         } catch (we) {}
       }
 
-      // Fetch budget & expenses
       fetchBudgetAndExpenses();
+      fetchMembersAndJoinRequests();
     } catch (err: any) {
       if (err.response?.status === 401) {
         router.push("/login");
@@ -150,7 +180,6 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
 
   const fetchBudgetAndExpenses = async () => {
     try {
-      // Fetch budget
       const budgetRes = await api.get(`/budgets/trip/${id}`).catch(() => null);
       if (budgetRes?.data) {
         setBudget(budgetRes.data);
@@ -158,13 +187,11 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
         setCurrencyInput(budgetRes.data.currency || "USD");
       }
 
-      // Fetch expenses
       const expRes = await api.get(`/expenses/trip/${id}`).catch(() => null);
       if (expRes?.data && Array.isArray(expRes.data)) {
         setExpenses(expRes.data);
       }
 
-      // Fetch category summary
       const summaryRes = await api.get(`/expenses/trip/${id}/category-summary`).catch(() => null);
       if (summaryRes?.data) {
         setCategorySummary(summaryRes.data);
@@ -174,9 +201,31 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const fetchMembersAndJoinRequests = async () => {
+    try {
+      const memRes = await api.get(`/trips/${id}/members`).catch(() => null);
+      if (memRes?.data && Array.isArray(memRes.data)) {
+        setMembers(memRes.data);
+      }
+
+      const reqRes = await api.get(`/trips/${id}/join-requests`).catch(() => null);
+      if (reqRes?.data && Array.isArray(reqRes.data)) {
+        setJoinRequests(reqRes.data);
+      }
+    } catch (e) {
+      console.log("Error fetching members or join requests:", e);
+    }
+  };
+
   useEffect(() => {
+    fetchCurrentUser();
     fetchTripDetails();
   }, [id]);
+
+  // Determine current user's role on this trip
+  const isOwner = currentUser?.id === trip?.ownerId || currentUser?.email === members.find(m => m.id === 0)?.userEmail;
+  const userMemberObj = members.find((m) => m.userId === currentUser?.id || m.userEmail === currentUser?.email);
+  const isGroupAdmin = userMemberObj?.role === "GROUP_ADMIN" || isOwner || currentUser?.role === "ADMINISTRATOR";
 
   // Handle Add Day
   const handleAddDay = async (e: React.FormEvent) => {
@@ -271,7 +320,7 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  // Save / Set Budget
+  // Budget
   const handleSaveBudget = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!totalBudgetInput || parseFloat(totalBudgetInput) <= 0) {
@@ -297,7 +346,7 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  // Open Expense Modal
+  // Expenses
   const openAddExpenseModal = () => {
     setEditingExpense(null);
     setExpenseCategory("Transportation");
@@ -316,7 +365,6 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
     setShowExpenseModal(true);
   };
 
-  // Save Expense (Add / Edit)
   const handleSaveExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!expenseAmount || parseFloat(expenseAmount) <= 0) {
@@ -348,7 +396,6 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  // Delete Expense
   const handleDeleteExpense = async (expId: number) => {
     if (!confirm("Are you sure you want to delete this expense?")) return;
 
@@ -360,7 +407,64 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
-  // Chart Data Preparation
+  // Invite Member Flow
+  const handleInviteMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviteEmail.trim()) return;
+
+    setInviting(true);
+    setInviteError(null);
+    setInviteSuccess(null);
+
+    try {
+      await api.post(`/trips/${id}/members?email=${encodeURIComponent(inviteEmail.trim())}&role=${inviteRole}`);
+      setInviteSuccess(`Successfully added ${inviteEmail.trim()} as ${inviteRole === "GROUP_ADMIN" ? "Group Admin" : "Member"}!`);
+      setInviteEmail("");
+      fetchMembersAndJoinRequests();
+    } catch (err: any) {
+      setInviteError(getErrorMessage(err, "Failed to invite member. Please verify the email address."));
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  // Update Member Role
+  const handleRoleChange = async (targetUserId: number, newRole: "MEMBER" | "GROUP_ADMIN") => {
+    try {
+      await api.put(`/trips/${id}/members/${targetUserId}/role?role=${newRole}`);
+      fetchMembersAndJoinRequests();
+    } catch (err: any) {
+      alert(getErrorMessage(err, "Failed to update member role."));
+    }
+  };
+
+  // Remove Member
+  const handleConfirmRemoveMember = async () => {
+    if (!memberToRemove) return;
+    setRemovingMember(true);
+
+    try {
+      await api.delete(`/trips/${id}/members/${memberToRemove.userId}`);
+      setMemberToRemove(null);
+      fetchMembersAndJoinRequests();
+    } catch (err: any) {
+      alert(getErrorMessage(err, "Failed to remove member."));
+    } finally {
+      setRemovingMember(false);
+    }
+  };
+
+  // Respond to Join Request (Approve / Reject)
+  const handleJoinResponse = async (requestId: number, status: "APPROVED" | "REJECTED") => {
+    try {
+      await api.put(`/trips/${id}/join-requests/${requestId}/respond?status=${status}`);
+      fetchMembersAndJoinRequests();
+    } catch (err: any) {
+      alert(getErrorMessage(err, `Failed to ${status.toLowerCase()} join request.`));
+    }
+  };
+
+  // Chart Data
   const chartCategories = Object.keys(categorySummary);
   const chartAmounts = Object.values(categorySummary);
 
@@ -371,12 +475,12 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
         label: "Spending ($)",
         data: chartAmounts.length > 0 ? chartAmounts : [1],
         backgroundColor: [
-          "#3b82f6", // Transportation - blue
-          "#8b5cf6", // Hotel - purple
-          "#f59e0b", // Food - amber
-          "#ec4899", // Shopping - pink
-          "#10b981", // Entertainment - emerald
-          "#64748b", // Miscellaneous - slate
+          "#3b82f6",
+          "#8b5cf6",
+          "#f59e0b",
+          "#ec4899",
+          "#10b981",
+          "#64748b",
         ],
         borderWidth: 1,
       },
@@ -406,7 +510,7 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
           <div className="bg-red-50 border border-red-200 rounded-2xl p-6 text-red-700 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-5 h-5" />
-              <span>{error || "Trip not found."}</span>
+              <span>{error || "Trip not found or access denied."}</span>
             </div>
             <Link href="/trips" className="underline font-bold">Back to Trips</Link>
           </div>
@@ -452,12 +556,14 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
           </div>
 
           <div className="flex items-center gap-2">
-            <Link
-              href={`/trips/${trip.id}/edit`}
-              className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm"
-            >
-              <Edit2 className="w-3.5 h-3.5" /> Edit Trip
-            </Link>
+            {isGroupAdmin && (
+              <Link
+                href={`/trips/${trip.id}/edit`}
+                className="inline-flex items-center gap-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-2 rounded-xl text-xs font-bold transition shadow-sm"
+              >
+                <Edit2 className="w-3.5 h-3.5" /> Edit Trip
+              </Link>
+            )}
           </div>
         </div>
 
@@ -521,6 +627,133 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
         </div>
 
         {/* ========================================================================= */}
+        {/* MEMBERS & INVITE SECTION */}
+        {/* ========================================================================= */}
+        <section className="bg-white p-8 rounded-3xl border border-sky-100 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-6">
+            <div>
+              <h2 className="text-xl font-bold text-sky-950 flex items-center gap-2">
+                <Users className="w-6 h-6 text-sky-600" /> Trip Members ({members.length})
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Everyone collaborating on this trip. Regular members can view members; Group Admins & Owners can invite and manage roles.
+              </p>
+            </div>
+
+            {isGroupAdmin && (
+              <button
+                onClick={() => {
+                  setInviteError(null);
+                  setInviteSuccess(null);
+                  setShowInviteModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 bg-sky-700 hover:bg-sky-800 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md transition"
+              >
+                <UserPlus className="w-4 h-4 text-amber-400" /> Invite Member
+              </button>
+            )}
+          </div>
+
+          {/* Pending Join Requests (Visible to Group Admin / Owner) */}
+          {isGroupAdmin && joinRequests.length > 0 && (
+            <div className="bg-amber-50/70 border border-amber-200 p-5 rounded-2xl space-y-3">
+              <h3 className="font-bold text-xs text-amber-950 flex items-center gap-2 uppercase tracking-wider">
+                <UserCheck className="w-4 h-4 text-amber-600" /> Pending Join Requests ({joinRequests.length})
+              </h3>
+              <div className="space-y-2">
+                {joinRequests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-white p-3.5 rounded-xl border border-amber-200/80 shadow-2xs flex items-center justify-between gap-4 text-xs"
+                  >
+                    <div>
+                      <span className="font-bold text-slate-900">{req.userName}</span>
+                      <span className="text-slate-500 ml-2">({req.userEmail})</span>
+                      <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md ml-2">
+                        Requested: {req.createdAt ? req.createdAt.substring(0, 10) : "Today"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        onClick={() => handleJoinResponse(req.id, "APPROVED")}
+                        className="inline-flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                      >
+                        <Check className="w-3.5 h-3.5" /> Approve
+                      </button>
+                      <button
+                        onClick={() => handleJoinResponse(req.id, "REJECTED")}
+                        className="inline-flex items-center gap-1 bg-slate-200 hover:bg-red-100 text-slate-700 hover:text-red-700 px-3 py-1.5 rounded-lg text-xs font-bold transition"
+                      >
+                        <UserX className="w-3.5 h-3.5" /> Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Member List Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {members.map((m) => {
+              const isTripOwner = m.id === 0 || m.userId === trip.ownerId;
+              return (
+                <div
+                  key={`member-${m.userId}-${m.userEmail}`}
+                  className="bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-800 font-extrabold flex items-center justify-center text-sm shadow-2xs">
+                      {m.userName ? m.userName.charAt(0).toUpperCase() : "U"}
+                    </div>
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 flex items-center gap-1.5">
+                        {m.userName}
+                        {isTripOwner ? (
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-amber-600" /> Owner
+                          </span>
+                        ) : m.role === "GROUP_ADMIN" ? (
+                          <span className="text-[9px] font-black uppercase px-2 py-0.5 rounded-md bg-sky-100 text-sky-800 border border-sky-200">
+                            Group Admin
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-slate-200 text-slate-700">
+                            Member
+                          </span>
+                        )}
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">{m.userEmail}</p>
+                    </div>
+                  </div>
+
+                  {/* Role change & Remove controls for Group Admin / Owner */}
+                  {isGroupAdmin && !isTripOwner && m.userId !== currentUser?.id && (
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={m.role}
+                        onChange={(e) => handleRoleChange(m.userId, e.target.value as "MEMBER" | "GROUP_ADMIN")}
+                        className="text-[11px] bg-white border border-slate-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-sky-500 font-semibold"
+                      >
+                        <option value="MEMBER">Member</option>
+                        <option value="GROUP_ADMIN">Group Admin</option>
+                      </select>
+                      <button
+                        onClick={() => setMemberToRemove(m)}
+                        className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg transition"
+                        title="Remove member"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ========================================================================= */}
         {/* BUDGET & EXPENSE MANAGEMENT SECTION */}
         {/* ========================================================================= */}
         <section className="bg-white p-8 rounded-3xl border border-sky-100 shadow-sm space-y-6">
@@ -551,7 +784,7 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
 
-          {/* Budget Overview Metrics Cards */}
+          {/* Metrics */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-1">
               <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Total Allocated Budget</span>
@@ -581,9 +814,8 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
             </div>
           </div>
 
-          {/* Category Chart and Expense Summary Grid */}
+          {/* Chart & Expense List */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 pt-4">
-            {/* Category Pie / Breakdown Chart */}
             <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex flex-col items-center justify-center text-center space-y-4">
               <div className="w-full flex items-center justify-between border-b border-slate-200 pb-3">
                 <h3 className="font-bold text-sm text-sky-950 flex items-center gap-1.5">
@@ -603,7 +835,6 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
               )}
             </div>
 
-            {/* Expenses Table / List */}
             <div className="lg:col-span-2 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h3 className="font-bold text-sm text-sky-950 flex items-center gap-2">
@@ -811,6 +1042,124 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
           )}
         </section>
       </main>
+
+      {/* ========================================================================= */}
+      {/* MODAL: INVITE MEMBER */}
+      {/* ========================================================================= */}
+      {showInviteModal && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-base text-sky-950 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-sky-600" /> Invite Member to Trip
+              </h3>
+              <button onClick={() => setShowInviteModal(false)} className="text-slate-400 hover:text-slate-600 p-1">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {inviteSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+                <span>{inviteSuccess}</span>
+              </div>
+            )}
+
+            {inviteError && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{inviteError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleInviteMember} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">User Email Address *</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                  <input
+                    type="email"
+                    required
+                    placeholder="e.g. traveler@example.com"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Enter the email address of a registered TripNest user.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">Role Permission</label>
+                <select
+                  value={inviteRole}
+                  onChange={(e) => setInviteRole(e.target.value as "MEMBER" | "GROUP_ADMIN")}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white font-medium"
+                >
+                  <option value="MEMBER">Member (Can view & manage itinerary, activities, expenses)</option>
+                  <option value="GROUP_ADMIN">Group Admin (Can also invite members & manage roles)</option>
+                </select>
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowInviteModal(false)}
+                  className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition"
+                >
+                  Close
+                </button>
+                <button
+                  type="submit"
+                  disabled={inviting}
+                  className="flex-1 py-2 bg-sky-700 hover:bg-sky-800 text-white font-bold rounded-xl shadow-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Send className="w-3.5 h-3.5" /> Add Member</>}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL: MEMBER REMOVAL CONFIRMATION */}
+      {/* ========================================================================= */}
+      {memberToRemove && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4 text-center">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+              <UserX className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-slate-900">Remove Member</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Are you sure you want to remove <strong>{memberToRemove.userName}</strong> ({memberToRemove.userEmail}) from this trip?
+              </p>
+            </div>
+
+            <div className="pt-2 flex gap-3 text-xs">
+              <button
+                type="button"
+                onClick={() => setMemberToRemove(null)}
+                className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmRemoveMember}
+                disabled={removingMember}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {removingMember ? <Loader2 className="w-4 h-4 animate-spin" /> : "Remove Member"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* MODAL: BUDGET SETTINGS */}

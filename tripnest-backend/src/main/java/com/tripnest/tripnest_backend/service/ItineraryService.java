@@ -6,81 +6,53 @@ import com.tripnest.tripnest_backend.entity.User;
 import com.tripnest.tripnest_backend.repository.ItineraryRepository;
 import com.tripnest.tripnest_backend.repository.TripRepository;
 import com.tripnest.tripnest_backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class ItineraryService {
 
     private final ItineraryRepository itineraryRepository;
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
+    private final TripAccessService tripAccessService;
 
-    public ItineraryService(
-            ItineraryRepository itineraryRepository,
-            TripRepository tripRepository,
-            UserRepository userRepository) {
-
-        this.itineraryRepository = itineraryRepository;
-        this.tripRepository = tripRepository;
-        this.userRepository = userRepository;
-    }
-
-    // Get only itineraries belonging to the logged-in user's trips
+    // Get itineraries for trips accessible to the user (owned or joined)
     public List<Itinerary> getAllItineraries(String userEmail) {
-
         User user = getUserByEmail(userEmail);
 
         return itineraryRepository.findAll()
                 .stream()
-                .filter(itinerary ->
-                        itinerary.getTrip()
-                                .getOwner()
-                                .getId()
-                                .equals(user.getId()))
+                .filter(itinerary -> tripAccessService.hasAccess(itinerary.getTrip(), user))
                 .toList();
     }
 
-    // Get one itinerary only if user owns its trip
-    public Itinerary getItineraryById(
-            Integer id,
-            String userEmail) {
-
+    // Get one itinerary if user has access to its trip
+    public Itinerary getItineraryById(Integer id, String userEmail) {
         Itinerary itinerary = itineraryRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Itinerary not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Itinerary not found with id: " + id));
 
-        verifyOwnership(itinerary.getTrip(), userEmail);
-
+        verifyAccess(itinerary.getTrip(), userEmail);
         return itinerary;
     }
 
-    // Get itineraries for a trip only if user owns that trip
-    public List<Itinerary> getItinerariesByTripId(
-            Integer tripId,
-            String userEmail) {
-
+    // Get itineraries for a trip if user has access to that trip
+    public List<Itinerary> getItinerariesByTripId(Integer tripId, String userEmail) {
         Trip trip = getTripById(tripId);
 
-        verifyOwnership(trip, userEmail);
-
-        return itineraryRepository
-                .findByTripIdOrderByDayNumberAsc(tripId);
+        verifyAccess(trip, userEmail);
+        return itineraryRepository.findByTripIdOrderByDayNumberAsc(tripId);
     }
 
-    // Create itinerary only for user's own trip
-    public Itinerary createItinerary(
-            Integer tripId,
-            Integer dayNumber,
-            LocalDate dayDate,
-            String userEmail) {
-
+    // Create itinerary for an accessible trip
+    public Itinerary createItinerary(Integer tripId, Integer dayNumber, LocalDate dayDate, String userEmail) {
         Trip trip = getTripById(tripId);
 
-        verifyOwnership(trip, userEmail);
+        verifyAccess(trip, userEmail);
 
         Itinerary itinerary = Itinerary.builder()
                 .trip(trip)
@@ -91,15 +63,9 @@ public class ItineraryService {
         return itineraryRepository.save(itinerary);
     }
 
-    // Update only user's own itinerary
-    public Itinerary updateItinerary(
-            Integer id,
-            Integer dayNumber,
-            LocalDate dayDate,
-            String userEmail) {
-
-        Itinerary itinerary =
-                getItineraryById(id, userEmail);
+    // Update itinerary if user has access
+    public Itinerary updateItinerary(Integer id, Integer dayNumber, LocalDate dayDate, String userEmail) {
+        Itinerary itinerary = getItineraryById(id, userEmail);
 
         itinerary.setDayNumber(dayNumber);
         itinerary.setDayDate(dayDate);
@@ -107,54 +73,24 @@ public class ItineraryService {
         return itineraryRepository.save(itinerary);
     }
 
-    // Delete only user's own itinerary
-    public void deleteItinerary(
-            Integer id,
-            String userEmail) {
-
-        Itinerary itinerary =
-                getItineraryById(id, userEmail);
-
+    // Delete itinerary if user has access
+    public void deleteItinerary(Integer id, String userEmail) {
+        Itinerary itinerary = getItineraryById(id, userEmail);
         itineraryRepository.delete(itinerary);
     }
 
     private User getUserByEmail(String email) {
-
         return userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "User not found: " + email));
+                .orElseThrow(() -> new RuntimeException("User not found: " + email));
     }
 
     private Trip getTripById(Integer id) {
-
         return tripRepository.findById(id)
-                .orElseThrow(() ->
-                        new RuntimeException(
-                                "Trip not found with id: " + id));
+                .orElseThrow(() -> new RuntimeException("Trip not found with id: " + id));
     }
 
-    private void verifyOwnership(
-            Trip trip,
-            String userEmail) {
-
+    private void verifyAccess(Trip trip, String userEmail) {
         User user = getUserByEmail(userEmail);
-
-        // Owner can access
-        if (trip.getOwner()
-                .getId()
-                .equals(user.getId())) {
-            return;
-        }
-
-        // Administrator can access
-        if (user.getRole() != null &&
-                "ADMINISTRATOR".equals(
-                        user.getRole().getName())) {
-            return;
-        }
-
-        throw new RuntimeException(
-                "You do not have permission to access this itinerary");
+        tripAccessService.verifyAccess(trip, user);
     }
 }
