@@ -17,5 +17,6 @@ public class UserProfileDto {
     private String bio;
     private String travelPreferences;
     private String favoriteDestinations;
+    private String preferredCurrency;
     private LocalDateTime createdAt;
 }

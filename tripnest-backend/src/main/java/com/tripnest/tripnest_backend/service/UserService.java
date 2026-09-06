@@ -47,6 +47,7 @@ public class UserService {
                 savedUser.getId(),
                 savedUser.getName(),
                 savedUser.getEmail(),
+                savedUser.getRole() != null ? savedUser.getRole().getName() : "TRAVELER",
                 "User registered successfully",
                 null
         );
@@ -56,42 +57,28 @@ public class UserService {
 
         System.out.println("========== LOGIN DEBUG ==========");
         System.out.println("Email received: " + request.getEmail());
-        System.out.println("Password received: " + request.getPassword());
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> {
-                    System.out.println("❌ USER NOT FOUND");
-                    return new BadCredentialsException(
-                            "Invalid email or password");
-                });
-
-        System.out.println("✅ USER FOUND: " + user.getEmail());
-        System.out.println("Stored password hash: " + user.getPasswordHash());
+                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
 
         boolean passwordMatches = passwordEncoder.matches(
                 request.getPassword(),
                 user.getPasswordHash()
         );
 
-        System.out.println("Password matches: " + passwordMatches);
-
         if (!passwordMatches) {
-            System.out.println("❌ PASSWORD DOES NOT MATCH");
-            throw new BadCredentialsException(
-                    "Invalid email or password");
+            throw new BadCredentialsException("Invalid email or password");
         }
-
-        System.out.println("✅ PASSWORD MATCHED");
 
         String token = jwtUtil.generateToken(user.getEmail());
 
-        System.out.println("✅ JWT GENERATED");
-        System.out.println("=================================");
+        String roleName = user.getRole() != null ? user.getRole().getName() : "TRAVELER";
 
         return new AuthResponse(
                 user.getId(),
                 user.getName(),
                 user.getEmail(),
+                roleName,
                 "Login successful",
                 token
         );
@@ -119,6 +106,9 @@ public class UserService {
         if (request.getFavoriteDestinations() != null) {
             user.setFavoriteDestinations(request.getFavoriteDestinations());
         }
+        if (request.getPreferredCurrency() != null && !request.getPreferredCurrency().isBlank()) {
+            user.setPreferredCurrency(request.getPreferredCurrency());
+        }
 
         User updated = userRepository.save(user);
         return mapToProfileDto(updated);
@@ -137,6 +127,11 @@ public class UserService {
     }
 
     private com.tripnest.tripnest_backend.dto.UserProfileDto mapToProfileDto(User user) {
+        String curr = user.getPreferredCurrency();
+        if (curr == null || curr.isBlank()) {
+            curr = "USD";
+        }
+
         return new com.tripnest.tripnest_backend.dto.UserProfileDto(
                 user.getId(),
                 user.getName(),
@@ -145,6 +140,7 @@ public class UserService {
                 user.getBio(),
                 user.getTravelPreferences(),
                 user.getFavoriteDestinations(),
+                curr,
                 user.getCreatedAt()
         );
     }

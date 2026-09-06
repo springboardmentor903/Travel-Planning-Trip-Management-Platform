@@ -42,6 +42,9 @@ public class User {
  
     @Column(name = "favorite_destinations", columnDefinition = "TEXT")
     private String favoriteDestinations;
+
+    @Column(name = "preferred_currency", length = 20)
+    private String preferredCurrency = "USD";
  
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

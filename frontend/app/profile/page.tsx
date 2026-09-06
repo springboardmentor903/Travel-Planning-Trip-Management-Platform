@@ -6,7 +6,7 @@ import api, { getErrorMessage } from "@/lib/api";
 import { UserProfile } from "@/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { User, Mail, Shield, Calendar, Heart, Edit2, Save, X, Loader2, Sparkles, AlertCircle, CheckCircle } from "lucide-react";
+import { User, Mail, Calendar, Heart, Edit2, X, Loader2, AlertCircle, CheckCircle } from "lucide-react";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -38,8 +38,8 @@ export default function ProfilePage() {
         setProfile(res.data);
         setName(res.data.name || "");
         setBio(res.data.bio || "");
-        setTravelPreferences(res.data.travelPreferences || "Adventure, Cultural, Beach, Budget");
-        setFavoriteDestinations(res.data.favoriteDestinations || "Paris, Bali, Tokyo, Rome");
+        setTravelPreferences(res.data.travelPreferences || "");
+        setFavoriteDestinations(res.data.favoriteDestinations || "");
       }
     } catch (err: any) {
       if (err.response?.status === 401) {
@@ -82,19 +82,19 @@ export default function ProfilePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-sky-50 text-slate-800">
+    <div className="min-h-screen flex flex-col bg-[#F8F4E8] text-[#1C1C1C]">
       <Navbar />
 
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {loading ? (
-          <div className="py-20 text-center text-slate-500">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-sky-600" />
+          <div className="py-20 text-center text-[#7A6F5A]">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#0B132B]" />
             <p className="text-xs">Loading profile information...</p>
           </div>
         ) : error ? (
-          <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs flex items-center justify-between">
+          <div className="p-6 bg-[#8B2635]/10 border border-[#8B2635]/30 rounded-2xl text-[#8B2635] text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5" />
+              <AlertCircle className="w-5 h-5 text-[#8B2635]" />
               <span>{error}</span>
             </div>
             <button onClick={fetchProfile} className="underline font-bold">Retry</button>
@@ -103,27 +103,27 @@ export default function ProfilePage() {
           profile && (
             <>
               {/* Profile Top Card */}
-              <div className="bg-white rounded-3xl border border-sky-100 shadow-sm p-8 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
+              <div className="bg-[#FFFCF5] rounded-3xl border border-[#E3D8BC] shadow-sm p-8 flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
                 <div className="flex flex-col sm:flex-row items-center gap-6 text-center sm:text-left">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-sky-600 to-sky-800 text-amber-300 text-3xl font-black flex items-center justify-center shadow-md shrink-0 border-4 border-white">
+                  <div className="w-20 h-20 rounded-full bg-[#0B132B] text-[#D4AF37] text-3xl font-black flex items-center justify-center shadow-md shrink-0 border-4 border-[#D4AF37]">
                     {profile.name ? profile.name.charAt(0).toUpperCase() : "U"}
                   </div>
 
                   <div>
                     <div className="flex items-center justify-center sm:justify-start gap-2">
-                      <h1 className="text-2xl font-extrabold text-sky-950">{profile.name}</h1>
-                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                      <h1 className="text-2xl font-extrabold text-[#0B132B]">{profile.name}</h1>
+                      <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#0B132B] border border-[#D4AF37]/40">
                         {profile.role || "TRAVELER"}
                       </span>
                     </div>
 
-                    <p className="text-xs text-slate-500 flex items-center justify-center sm:justify-start gap-1.5 mt-1">
-                      <Mail className="w-3.5 h-3.5 text-sky-600" /> {profile.email}
+                    <p className="text-xs text-[#7A6F5A] flex items-center justify-center sm:justify-start gap-1.5 mt-1 font-medium">
+                      <Mail className="w-3.5 h-3.5 text-[#0B132B]" /> {profile.email}
                     </p>
 
                     {profile.createdAt && (
-                      <p className="text-[11px] text-slate-400 flex items-center justify-center sm:justify-start gap-1 mt-1">
-                        <Calendar className="w-3.5 h-3.5" /> Member since: {profile.createdAt.substring(0, 10)}
+                      <p className="text-[11px] text-[#7A6F5A] flex items-center justify-center sm:justify-start gap-1 mt-1">
+                        <Calendar className="w-3.5 h-3.5 text-[#7A6F5A]" /> Member since: {profile.createdAt.substring(0, 10)}
                       </p>
                     )}
                   </div>
@@ -132,31 +132,31 @@ export default function ProfilePage() {
                 {!isEditing && (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="inline-flex items-center gap-2 bg-sky-700 hover:bg-sky-800 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition"
+                    className="inline-flex items-center gap-2 bg-[#0B132B] hover:bg-[#3B1F5C] text-[#FFFCF5] px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition"
                   >
-                    <Edit2 className="w-4 h-4 text-amber-400" /> Edit Profile & Preferences
+                    <Edit2 className="w-4 h-4 text-[#D4AF37]" /> Edit Profile & Preferences
                   </button>
                 )}
               </div>
 
               {/* Status Alert Messages */}
               {success && (
-                <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 shrink-0" />
+                <div className="p-4 bg-[#176B55]/10 border border-[#176B55]/30 text-[#176B55] text-xs rounded-xl flex items-center gap-2 font-medium">
+                  <CheckCircle className="w-4 h-4 shrink-0 text-[#176B55]" />
                   <span>{success}</span>
                 </div>
               )}
 
               {/* Form or Display View */}
               {isEditing ? (
-                <div className="bg-white p-8 rounded-3xl border border-sky-100 shadow-sm space-y-6">
-                  <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                    <h2 className="text-lg font-bold text-sky-950 flex items-center gap-2">
-                      <Edit2 className="w-5 h-5 text-amber-500" /> Edit Personal Info & Travel Preferences
+                <div className="bg-[#FFFCF5] p-8 rounded-3xl border border-[#E3D8BC] shadow-sm space-y-6">
+                  <div className="flex items-center justify-between border-b border-[#E3D8BC] pb-4">
+                    <h2 className="text-lg font-bold text-[#0B132B] flex items-center gap-2">
+                      <Edit2 className="w-5 h-5 text-[#D4AF37]" /> Edit Personal Info & Travel Preferences
                     </h2>
                     <button
                       onClick={() => setIsEditing(false)}
-                      className="p-1 text-slate-400 hover:text-slate-600"
+                      className="p-1 text-[#7A6F5A] hover:text-[#0B132B]"
                     >
                       <X className="w-5 h-5" />
                     </button>
@@ -164,46 +164,46 @@ export default function ProfilePage() {
 
                   <form onSubmit={handleUpdateProfile} className="space-y-5 text-xs">
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Full Name</label>
+                      <label className="block font-semibold text-[#0B132B] mb-1">Full Name</label>
                       <input
                         type="text"
                         required
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        className="w-full px-3.5 py-2.5 bg-[#FFFFFF] border border-[#D8CCAE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4AF37] text-[#1C1C1C]"
                       />
                     </div>
 
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">About / Bio</label>
+                      <label className="block font-semibold text-[#0B132B] mb-1">About / Bio</label>
                       <textarea
                         rows={3}
                         placeholder="Tell fellow travelers about yourself..."
                         value={bio}
                         onChange={(e) => setBio(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        className="w-full px-3.5 py-2.5 bg-[#FFFFFF] border border-[#D8CCAE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4AF37] text-[#1C1C1C]"
                       />
                     </div>
 
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Preferred Travel Style / Types</label>
+                      <label className="block font-semibold text-[#0B132B] mb-1">Preferred Travel Style / Types</label>
                       <input
                         type="text"
                         placeholder="e.g. Adventure, Beach, Solo, Family, Luxury, Cultural"
                         value={travelPreferences}
                         onChange={(e) => setTravelPreferences(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        className="w-full px-3.5 py-2.5 bg-[#FFFFFF] border border-[#D8CCAE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4AF37] text-[#1C1C1C]"
                       />
                     </div>
 
                     <div>
-                      <label className="block font-semibold text-slate-700 mb-1">Favourite Destinations</label>
+                      <label className="block font-semibold text-[#0B132B] mb-1">Favourite Destinations</label>
                       <input
                         type="text"
                         placeholder="e.g. Paris, Bali, Tokyo, Rome, New York"
                         value={favoriteDestinations}
                         onChange={(e) => setFavoriteDestinations(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        className="w-full px-3.5 py-2.5 bg-[#FFFFFF] border border-[#D8CCAE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4AF37] text-[#1C1C1C]"
                       />
                     </div>
 
@@ -211,14 +211,14 @@ export default function ProfilePage() {
                       <button
                         type="button"
                         onClick={() => setIsEditing(false)}
-                        className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition"
+                        className="flex-1 py-2.5 bg-transparent border border-[#0B132B] hover:bg-[#0B132B] text-[#0B132B] hover:text-[#FFFCF5] font-bold rounded-xl transition"
                       >
                         Cancel
                       </button>
                       <button
                         type="submit"
                         disabled={saving}
-                        className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
+                        className="flex-1 py-2.5 bg-[#D4AF37] hover:bg-[#E6C65C] text-[#0B132B] font-extrabold rounded-xl shadow-md transition flex items-center justify-center gap-2 disabled:opacity-50"
                       >
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Profile Updates"}
                       </button>
@@ -228,56 +228,66 @@ export default function ProfilePage() {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Bio & Personal Info */}
-                  <div className="bg-white p-8 rounded-3xl border border-sky-100 shadow-sm space-y-4">
-                    <h3 className="text-base font-bold text-sky-950 flex items-center gap-2 border-b border-slate-100 pb-3">
-                      <User className="w-4 h-4 text-sky-600" /> About Me
+                  <div className="bg-[#FFFCF5] p-8 rounded-3xl border border-[#E3D8BC] shadow-sm space-y-4">
+                    <h3 className="text-base font-bold text-[#0B132B] flex items-center gap-2 border-b border-[#E3D8BC] pb-3">
+                      <User className="w-4 h-4 text-[#0B132B]" /> About Me
                     </h3>
-                    <p className="text-xs text-slate-600 leading-relaxed italic">
+                    <p className="text-xs text-[#7A6F5A] leading-relaxed italic">
                       {profile.bio || "No biography added yet. Click 'Edit Profile' above to introduce yourself!"}
                     </p>
                   </div>
 
                   {/* Travel Preferences & Favorites */}
-                  <div className="bg-white p-8 rounded-3xl border border-sky-100 shadow-sm space-y-6">
-                    <h3 className="text-base font-bold text-sky-950 flex items-center gap-2 border-b border-slate-100 pb-3">
-                      <Heart className="w-4 h-4 text-red-500" /> Travel Preferences & Favorites
+                  <div className="bg-[#FFFCF5] p-8 rounded-3xl border border-[#E3D8BC] shadow-sm space-y-6">
+                    <h3 className="text-base font-bold text-[#0B132B] flex items-center gap-2 border-b border-[#E3D8BC] pb-3">
+                      <Heart className="w-4 h-4 text-[#176B55]" /> Travel Preferences & Favorites
                     </h3>
 
                     <div className="space-y-4 text-xs">
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        <span className="text-[10px] font-bold text-[#7A6F5A] uppercase tracking-wider block mb-1">
                           Preferred Travel Types
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(profile.travelPreferences || "Adventure, Cultural, Budget")
-                            .split(",")
-                            .map((pref, i) => (
-                              <span
-                                key={i}
-                                className="bg-sky-50 text-sky-800 font-bold text-[11px] px-3 py-1 rounded-lg border border-sky-100"
-                              >
-                                ✈️ {pref.trim()}
-                              </span>
-                            ))}
-                        </div>
+                        {profile.travelPreferences && profile.travelPreferences.trim().length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {profile.travelPreferences
+                              .split(",")
+                              .filter((p) => p.trim().length > 0)
+                              .map((pref, i) => (
+                                <span
+                                  key={i}
+                                  className="bg-[#3B1F5C]/15 text-[#3B1F5C] font-bold text-[11px] px-3 py-1 rounded-lg border border-[#3B1F5C]/30"
+                                >
+                                  ✈️ {pref.trim()}
+                                </span>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[#7A6F5A] italic">No travel preferences added yet.</p>
+                        )}
                       </div>
 
                       <div>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                        <span className="text-[10px] font-bold text-[#7A6F5A] uppercase tracking-wider block mb-1">
                           Favourite Destinations
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(profile.favoriteDestinations || "Paris, Bali, Tokyo")
-                            .split(",")
-                            .map((dest, i) => (
-                              <span
-                                key={i}
-                                className="bg-amber-50 text-amber-900 font-bold text-[11px] px-3 py-1 rounded-lg border border-amber-200"
-                              >
-                                📍 {dest.trim()}
-                              </span>
-                            ))}
-                        </div>
+                        {profile.favoriteDestinations && profile.favoriteDestinations.trim().length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {profile.favoriteDestinations
+                              .split(",")
+                              .filter((d) => d.trim().length > 0)
+                              .map((dest, i) => (
+                                <span
+                                  key={i}
+                                  className="bg-[#D4AF37]/20 text-[#0B132B] font-bold text-[11px] px-3 py-1 rounded-lg border border-[#D4AF37]/40"
+                                >
+                                  📍 {dest.trim()}
+                                </span>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-[#7A6F5A] italic">No favorite destinations added yet.</p>
+                        )}
                       </div>
                     </div>
                   </div>

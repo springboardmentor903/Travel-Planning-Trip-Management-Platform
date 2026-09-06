@@ -24,6 +24,13 @@ public class DestinationService {
                 .toList();
     }
 
+    public List<DestinationResponse> getPopularDestinations() {
+        return destinationRepository.findAll().stream()
+                .filter(d -> Boolean.TRUE.equals(d.getIsPopular()))
+                .map(this::mapToResponseWithWeather)
+                .toList();
+    }
+
     public DestinationResponse getDestinationById(Integer id) {
         Destination destination = destinationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Destination not found with id: " + id));
@@ -92,8 +99,11 @@ public class DestinationService {
     }
 
     private DestinationResponse mapToResponseWithWeather(Destination d) {
-        WeatherDto weather = weatherService.getWeatherForDestination(d);
-        String liveWeatherStr = weather.getTemperature() + "°C " + weather.getCondition();
+        String liveWeatherStr = d.getWeatherInfo();
+        if (liveWeatherStr == null || liveWeatherStr.isBlank()) {
+            WeatherDto weather = weatherService.getWeatherForDestination(d);
+            liveWeatherStr = weather.getTemperature() + "°C " + weather.getCondition();
+        }
 
         return new DestinationResponse(
                 d.getId(),

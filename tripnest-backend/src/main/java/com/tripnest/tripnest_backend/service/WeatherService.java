@@ -12,8 +12,26 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import java.util.concurrent.ConcurrentHashMap;
+
 @Service
 public class WeatherService {
+
+    private static class WeatherCacheEntry {
+        final WeatherDto dto;
+        final long timestamp;
+
+        WeatherCacheEntry(WeatherDto dto) {
+            this.dto = dto;
+            this.timestamp = System.currentTimeMillis();
+        }
+
+        boolean isExpired() {
+            return System.currentTimeMillis() - timestamp > 15 * 60 * 1000; // 15 minutes TTL
+        }
+    }
+
+    private final Map<String, WeatherCacheEntry> weatherCache = new ConcurrentHashMap<>();
 
     @Value("${weather.api.key:04d42417aeabfed7094507cb8d41a120}")
     private String apiKey;
@@ -28,103 +46,130 @@ public class WeatherService {
     }
 
     public WeatherDto getWeatherByCityName(String cityName, String fallbackWeather) {
-        // Step 1: Try OpenWeather API
-        try {
-            String url = apiUrl + "?q=" + cityName + "&units=metric&appid=" + apiKey;
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+        if (cityName == null || cityName.isBlank()) {
+            return new WeatherDto(
+                    cityName,
+                    24.0,
+                    fallbackWeather != null ? fallbackWeather : "Sunny",
+                    12.0,
+                    60,
+                    "☀️",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+            );
+        }
 
-            if (response != null && response.containsKey("main")) {
-                Map<?, ?> main = (Map<?, ?>) response.get("main");
-                Double temp = Math.round(((Number) main.get("temp")).doubleValue() * 10.0) / 10.0;
-                Integer humidity = ((Number) main.get("humidity")).intValue();
+        String cacheKey = cityName.trim().toLowerCase();
+        WeatherCacheEntry cached = weatherCache.get(cacheKey);
+        if (cached != null && !cached.isExpired()) {
+            return cached.dto;
+        }
+        WeatherDto dto = null;
 
-                Map<?, ?> wind = (Map<?, ?>) response.get("wind");
-                Double windSpeedMs = wind != null && wind.containsKey("speed")
-                        ? ((Number) wind.get("speed")).doubleValue() : 3.0;
-                Double windSpeedKm = Math.round(windSpeedMs * 3.6 * 10.0) / 10.0;
+        // Step 1: Try OpenWeather API if valid key
+        if (apiKey != null && !apiKey.startsWith("04d42417")) {
+            try {
+                String url = apiUrl + "?q=" + cityName + "&units=metric&appid=" + apiKey;
+                Map<String, Object> response = restTemplate.getForObject(url, Map.class);
 
-                String condition = "Clear Sky";
-                String icon = "☀️";
+                if (response != null && response.containsKey("main")) {
+                    Map<?, ?> main = (Map<?, ?>) response.get("main");
+                    Double temp = Math.round(((Number) main.get("temp")).doubleValue() * 10.0) / 10.0;
+                    Integer humidity = ((Number) main.get("humidity")).intValue();
 
-                if (response.containsKey("weather")) {
-                    List<?> weatherList = (List<?>) response.get("weather");
-                    if (!weatherList.isEmpty()) {
-                        Map<?, ?> firstWeather = (Map<?, ?>) weatherList.get(0);
-                        String mainCond = (String) firstWeather.get("main");
-                        String desc = (String) firstWeather.get("description");
-                        String iconCode = (String) firstWeather.get("icon");
+                    Map<?, ?> wind = (Map<?, ?>) response.get("wind");
+                    Double windSpeedMs = wind != null && wind.containsKey("speed")
+                            ? ((Number) wind.get("speed")).doubleValue() : 3.0;
+                    Double windSpeedKm = Math.round(windSpeedMs * 3.6 * 10.0) / 10.0;
 
-                        condition = desc != null ? capitalizeWords(desc) : (mainCond != null ? mainCond : "Clear");
-                        icon = mapOpenWeatherIcon(iconCode, mainCond);
+                    String condition = "Clear Sky";
+                    String icon = "☀️";
+
+                    if (response.containsKey("weather")) {
+                        List<?> weatherList = (List<?>) response.get("weather");
+                        if (!weatherList.isEmpty()) {
+                            Map<?, ?> firstWeather = (Map<?, ?>) weatherList.get(0);
+                            String mainCond = (String) firstWeather.get("main");
+                            String desc = (String) firstWeather.get("description");
+                            String iconCode = (String) firstWeather.get("icon");
+
+                            condition = desc != null ? capitalizeWords(desc) : (mainCond != null ? mainCond : "Clear");
+                            icon = mapOpenWeatherIcon(iconCode, mainCond);
+                        }
                     }
-                }
 
-                return new WeatherDto(
-                        cityName,
-                        temp,
-                        condition,
-                        windSpeedKm,
-                        humidity,
-                        icon,
-                        LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                );
+                    dto = new WeatherDto(
+                            cityName,
+                            temp,
+                            condition,
+                            windSpeedKm,
+                            humidity,
+                            icon,
+                            LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                    );
+                }
+            } catch (Exception e) {
+                // Fallback to Open-Meteo
             }
-        } catch (Exception e) {
-            System.err.println("OpenWeather API notice for " + cityName + ": " + e.getMessage() + ". Switching to Open-Meteo live API...");
         }
 
         // Step 2: Fallback to Open-Meteo REST API (No Key Required, 100% Free & Accurate)
-        try {
-            String geocodeUrl = "https://geocoding-api.open-meteo.com/v1/search?name="
-                    + cityName + "&count=1&language=en&format=json";
+        if (dto == null) {
+            try {
+                String geocodeUrl = "https://geocoding-api.open-meteo.com/v1/search?name="
+                        + cityName + "&count=1&language=en&format=json";
 
-            Map<String, Object> geocodeResponse = restTemplate.getForObject(geocodeUrl, Map.class);
-            if (geocodeResponse != null && geocodeResponse.containsKey("results")) {
-                List<?> results = (List<?>) geocodeResponse.get("results");
-                if (!results.isEmpty()) {
-                    Map<?, ?> first = (Map<?, ?>) results.get(0);
-                    Double lat = ((Number) first.get("latitude")).doubleValue();
-                    Double lon = ((Number) first.get("longitude")).doubleValue();
+                Map<String, Object> geocodeResponse = restTemplate.getForObject(geocodeUrl, Map.class);
+                if (geocodeResponse != null && geocodeResponse.containsKey("results")) {
+                    List<?> results = (List<?>) geocodeResponse.get("results");
+                    if (!results.isEmpty()) {
+                        Map<?, ?> first = (Map<?, ?>) results.get(0);
+                        Double lat = ((Number) first.get("latitude")).doubleValue();
+                        Double lon = ((Number) first.get("longitude")).doubleValue();
 
-                    String forecastUrl = "https://api.open-meteo.com/v1/forecast?latitude="
-                            + lat + "&longitude=" + lon + "&current_weather=true";
+                        String forecastUrl = "https://api.open-meteo.com/v1/forecast?latitude="
+                                + lat + "&longitude=" + lon + "&current_weather=true";
 
-                    Map<String, Object> forecastResponse = restTemplate.getForObject(forecastUrl, Map.class);
-                    if (forecastResponse != null && forecastResponse.containsKey("current_weather")) {
-                        Map<?, ?> currentWeather = (Map<?, ?>) forecastResponse.get("current_weather");
-                        Double temp = Math.round(((Number) currentWeather.get("temperature")).doubleValue() * 10.0) / 10.0;
-                        Double windSpeed = Math.round(((Number) currentWeather.get("windspeed")).doubleValue() * 10.0) / 10.0;
-                        int weatherCode = ((Number) currentWeather.get("weathercode")).intValue();
+                        Map<String, Object> forecastResponse = restTemplate.getForObject(forecastUrl, Map.class);
+                        if (forecastResponse != null && forecastResponse.containsKey("current_weather")) {
+                            Map<?, ?> currentWeather = (Map<?, ?>) forecastResponse.get("current_weather");
+                            Double temp = Math.round(((Number) currentWeather.get("temperature")).doubleValue() * 10.0) / 10.0;
+                            Double windSpeed = Math.round(((Number) currentWeather.get("windspeed")).doubleValue() * 10.0) / 10.0;
+                            int weatherCode = ((Number) currentWeather.get("weathercode")).intValue();
 
-                        String condition = decodeWeatherCode(weatherCode);
-                        String icon = getWeatherIcon(weatherCode);
+                            String condition = decodeWeatherCode(weatherCode);
+                            String icon = getWeatherIcon(weatherCode);
 
-                        return new WeatherDto(
-                                cityName,
-                                temp,
-                                condition,
-                                windSpeed,
-                                62,
-                                icon,
-                                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                        );
+                            dto = new WeatherDto(
+                                    cityName,
+                                    temp,
+                                    condition,
+                                    windSpeed,
+                                    62,
+                                    icon,
+                                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                            );
+                        }
                     }
                 }
+            } catch (Exception ex) {
+                System.err.println("Open-Meteo fallback error for " + cityName + ": " + ex.getMessage());
             }
-        } catch (Exception ex) {
-            System.err.println("Open-Meteo fallback error for " + cityName + ": " + ex.getMessage());
         }
 
-        // Fallback static
-        return new WeatherDto(
-                cityName,
-                24.0,
-                fallbackWeather != null ? fallbackWeather : "Sunny",
-                12.0,
-                60,
-                "☀️",
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-        );
+        if (dto == null) {
+            dto = new WeatherDto(
+                    cityName,
+                    24.0,
+                    fallbackWeather != null ? fallbackWeather : "Sunny",
+                    12.0,
+                    60,
+                    "☀️",
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+            );
+        }
+
+        weatherCache.put(cacheKey, new WeatherCacheEntry(dto));
+        return dto;
     }
 
     public Map<String, Object> geocodeWorldwideCity(String query) {

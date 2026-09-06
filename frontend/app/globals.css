@@ -1,21 +1,102 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --royal-navy: #0B132B;
+  --royal-purple: #3B1F5C;
+
+  --antique-gold: #D4AF37;
+  --light-gold: #E6C65C;
+  --dark-gold: #C58A00;
+
+  --ivory: #F8F4E8;
+  --warm-white: #FFFCF5;
+  --pure-white: #FFFFFF;
+
+  --charcoal: #1C1C1C;
+  --muted-brown: #7A6F5A;
+  --muted-light: #BDB5A4;
+
+  --border-light: #E3D8BC;
+  --border-medium: #D8CCAE;
+
+  --success: #176B55;
+  --warning: #C58A00;
+  --danger: #8B2635;
+
+  --background: var(--ivory);
+  --foreground: var(--charcoal);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --color-royal-navy: #0B132B;
+  --color-royal-purple: #3B1F5C;
+
+  --color-antique-gold: #D4AF37;
+  --color-light-gold: #E6C65C;
+  --color-dark-gold: #C58A00;
+
+  --color-ivory: #F8F4E8;
+  --color-warm-white: #FFFCF5;
+  --color-pure-white: #FFFFFF;
+
+  --color-charcoal: #1C1C1C;
+  --color-muted-brown: #7A6F5A;
+  --color-muted-light: #BDB5A4;
+
+  --color-border-light: #E3D8BC;
+  --color-border-medium: #D8CCAE;
+
+  --color-emerald-success: #176B55;
+  --color-warning-gold: #C58A00;
+  --color-burgundy-danger: #8B2635;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--ivory);
+  color: var(--charcoal);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  min-height: 100vh;
+}
+
+/* Custom luxury component styles */
+.card-luxury {
+  background-color: var(--warm-white);
+  border: 1px solid var(--border-light);
+  color: var(--charcoal);
+  transition: all 0.2s ease-in-out;
+}
+.card-luxury:hover {
+  border-color: var(--antique-gold);
+  box-shadow: 0 8px 25px rgba(11, 19, 43, 0.12);
+}
+
+.btn-primary-luxury {
+  background-color: var(--royal-navy);
+  color: var(--warm-white);
+  transition: background-color 0.2s ease-in-out;
+}
+.btn-primary-luxury:hover {
+  background-color: var(--royal-purple);
+}
+
+.btn-premium-luxury {
+  background-color: var(--antique-gold);
+  color: var(--royal-navy);
+  transition: background-color 0.2s ease-in-out;
+}
+.btn-premium-luxury:hover {
+  background-color: var(--light-gold);
+}
+
+.btn-secondary-luxury {
+  background-color: transparent;
+  border: 1px solid var(--royal-navy);
+  color: var(--royal-navy);
+  transition: all 0.2s ease-in-out;
+}
+.btn-secondary-luxury:hover {
+  background-color: var(--royal-navy);
+  color: var(--warm-white);
 }
 
 /* Hide Next.js Dev Badge in development mode */

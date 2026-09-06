@@ -7,7 +7,7 @@ import api from "@/lib/api";
 import { Trip } from "@/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { History, Calendar, MapPin, Eye, Search, CheckCircle2, Loader2, Sparkles } from "lucide-react";
+import { History, Calendar, MapPin, Eye, Search, Loader2 } from "lucide-react";
 
 export default function TravelHistoryPage() {
   const router = useRouter();
@@ -52,45 +52,45 @@ export default function TravelHistoryPage() {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-sky-50 text-slate-800">
+    <div className="min-h-screen flex flex-col bg-[#F8F4E8] text-[#1C1C1C]">
       <Navbar />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-extrabold text-sky-950 flex items-center gap-2">
-              <History className="w-8 h-8 text-amber-500" /> Travel History
+            <h1 className="text-3xl font-extrabold text-[#0B132B] flex items-center gap-2">
+              <History className="w-8 h-8 text-[#D4AF37]" /> Travel History
             </h1>
-            <p className="text-xs text-slate-500 mt-1">Review your past travels, completed journeys, and trip logs</p>
+            <p className="text-xs text-[#7A6F5A] mt-1 font-medium">Review your past travels, completed journeys, and trip logs</p>
           </div>
 
           <div className="relative w-full sm:w-72">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+            <Search className="w-4 h-4 text-[#7A6F5A] absolute left-3 top-3" />
             <input
               type="text"
               placeholder="Search past trips..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 text-xs bg-white"
+              className="w-full pl-9 pr-4 py-2 bg-[#FFFFFF] border border-[#D8CCAE] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#D4AF37] text-xs text-[#1C1C1C]"
             />
           </div>
         </div>
 
         {loading ? (
-          <div className="py-20 text-center text-slate-500">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-sky-600" />
+          <div className="py-20 text-center text-[#7A6F5A]">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-[#0B132B]" />
             <p className="text-xs">Loading travel history...</p>
           </div>
         ) : filteredHistory.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center border border-sky-100 shadow-sm max-w-md mx-auto my-8 space-y-3">
-            <History className="w-12 h-12 text-sky-300 mx-auto" />
-            <h3 className="text-base font-bold text-sky-950">No Past Travel Records</h3>
-            <p className="text-xs text-slate-500">
+          <div className="bg-[#FFFCF5] rounded-3xl p-12 text-center border border-[#E3D8BC] shadow-sm max-w-md mx-auto my-8 space-y-3">
+            <History className="w-12 h-12 text-[#D4AF37] mx-auto" />
+            <h3 className="text-base font-bold text-[#0B132B]">No Past Travel Records</h3>
+            <p className="text-xs text-[#7A6F5A]">
               {searchQuery ? "No travel history matched your search." : "Completed or past trips will appear here automatically."}
             </p>
             <Link
               href="/trips"
-              className="inline-block bg-sky-700 hover:bg-sky-800 text-white font-bold px-4 py-2 rounded-xl text-xs shadow-xs transition"
+              className="inline-block bg-[#0B132B] hover:bg-[#3B1F5C] text-[#FFFCF5] font-bold px-4 py-2 rounded-xl text-xs shadow-xs transition"
             >
               View Active Trips
             </Link>
@@ -100,37 +100,37 @@ export default function TravelHistoryPage() {
             {filteredHistory.map((trip) => (
               <div
                 key={trip.id}
-                className="bg-white rounded-2xl border border-sky-100 shadow-sm hover:shadow-md transition flex flex-col justify-between overflow-hidden"
+                className="bg-[#FFFCF5] rounded-2xl border border-[#E3D8BC] shadow-sm hover:border-[#D4AF37] hover:shadow-md transition flex flex-col justify-between overflow-hidden group"
               >
                 <div className="p-6">
                   <div className="flex items-start justify-between gap-2 mb-3">
-                    <h3 className="font-extrabold text-base text-sky-950 line-clamp-1">{trip.title}</h3>
-                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                    <h3 className="font-extrabold text-base text-[#0B132B] group-hover:text-[#3B1F5C] transition line-clamp-1">{trip.title}</h3>
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-[#0B132B]/10 text-[#0B132B] border border-[#0B132B]/30">
                       {trip.status}
                     </span>
                   </div>
 
-                  <div className="space-y-2 text-xs text-slate-600 mb-4">
+                  <div className="space-y-2 text-xs text-[#7A6F5A] mb-4">
                     {trip.destination && (
-                      <div className="flex items-center gap-1.5 font-semibold text-sky-700">
-                        <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <div className="flex items-center gap-1.5 font-semibold text-[#0B132B]">
+                        <MapPin className="w-3.5 h-3.5 text-[#D4AF37] shrink-0" />
                         <span>{trip.destination.name}, {trip.destination.country}</span>
                       </div>
                     )}
-                    <div className="flex items-center gap-1.5 text-slate-500">
-                      <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <div className="flex items-center gap-1.5 text-[#3B1F5C] font-semibold">
+                      <Calendar className="w-3.5 h-3.5 text-[#3B1F5C] shrink-0" />
                       <span>{trip.startDate} to {trip.endDate}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
-                  <span className="text-slate-400 text-[11px] font-medium">Logged Journey</span>
+                <div className="bg-[#F8F4E8] p-4 border-t border-[#E3D8BC] flex items-center justify-between text-xs font-semibold">
+                  <span className="text-[#7A6F5A] text-[11px] font-medium">Logged Journey</span>
                   <Link
                     href={`/trips/${trip.id}`}
-                    className="inline-flex items-center gap-1 text-sky-700 hover:text-sky-900 transition"
+                    className="inline-flex items-center gap-1 text-[#0B132B] hover:text-[#3B1F5C] transition"
                   >
-                    <Eye className="w-3.5 h-3.5" /> View Trip Details
+                    <Eye className="w-3.5 h-3.5 text-[#D4AF37]" /> View Trip Details
                   </Link>
                 </div>
               </div>
