@@ -33,14 +33,26 @@ export default function DestinationsPage() {
       });
   };
 
+  // Initial load
   useEffect(() => {
-    fetchDestinations();
+    fetchDestinations("");
   }, []);
+
+  // Debounced search trigger (250ms delay)
+  useEffect(() => {
+    if (searchQuery === "") return;
+    const timer = setTimeout(() => {
+      fetchDestinations(searchQuery);
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const q = e.target.value;
     setSearchQuery(q);
-    fetchDestinations(q);
+    if (q === "") {
+      fetchDestinations("");
+    }
   };
 
   const filtered = destinations.filter((dest) => {
@@ -92,7 +104,9 @@ export default function DestinationsPage() {
               <Compass className="w-5 h-5 text-amber-500" />
               <span>Explore Top Destinations</span>
             </h2>
-            <p className="text-xs text-slate-500 mt-0.5">Showing {filtered.length} places available for planning</p>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {loading ? "Loading destinations..." : `Showing ${filtered.length} places available for planning`}
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -122,9 +136,10 @@ export default function DestinationsPage() {
 
         {/* Destination List */}
         {loading ? (
-          <div className="py-20 text-center text-slate-500">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-sky-600" />
-            <p className="text-xs">Fetching destinations from backend...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-pulse">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-white rounded-2xl border border-sky-100 p-6 h-52 flex flex-col justify-between" />
+            ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center border border-sky-100 shadow-sm max-w-md mx-auto my-8">

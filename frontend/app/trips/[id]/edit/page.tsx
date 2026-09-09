@@ -6,7 +6,7 @@ import api, { getErrorMessage } from "@/lib/api";
 import { Destination, Trip } from "@/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { ArrowLeft, Calendar, MapPin, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, Loader2, AlertCircle, Check } from "lucide-react";
 
 export default function EditTripPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -14,34 +14,90 @@ export default function EditTripPage({ params }: { params: Promise<{ id: string 
 
   const [title, setTitle] = useState("");
   const [destinationId, setDestinationId] = useState<string>("");
+  const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Destination[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [status, setStatus] = useState("PLANNED");
 
-  const [destinations, setDestinations] = useState<Destination[]>([]);
   const [fetchingTrip, setFetchingTrip] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    // Fetch destinations and existing trip
-    Promise.all([api.get("/destinations"), api.get(`/trips/${id}`)])
-      .then(([destRes, tripRes]) => {
-        if (Array.isArray(destRes.data)) {
-          setDestinations(destRes.data);
+  const handleSearch = (query: string) => {
+    setIsSearching(true);
+    const url = query.trim()
+      ? `/destinations/search?query=${encodeURIComponent(query.trim())}`
+      : "/destinations/popular";
+
+    api
+      .get(url)
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          setSearchResults(res.data);
         }
-        const trip: Trip = tripRes.data;
+      })
+      .catch((err) => console.log("Failed destination search:", err))
+      .finally(() => setIsSearching(false));
+  };
+
+  useEffect(() => {
+    if (!selectedDest && isDropdownOpen) {
+      const timer = setTimeout(() => {
+        handleSearch(searchQuery);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, isDropdownOpen, selectedDest]);
+
+  useEffect(() => {
+    api.get(`/trips/${id}`)
+      .then((res) => {
+        const trip: Trip = res.data;
         setTitle(trip.title);
-        setDestinationId(trip.destination?.id ? trip.destination.id.toString() : "");
         setStartDate(trip.startDate);
         setEndDate(trip.endDate);
         setStatus(trip.status);
+
+        const destObj = trip.destination || (trip.destinationName ? {
+          id: trip.destinationId || 0,
+          name: trip.destinationName,
+          country: trip.destinationCountry || "",
+          description: "",
+          weatherInfo: "",
+          isPopular: false
+        } : null);
+
+        if (destObj) {
+          setSelectedDest(destObj);
+          setDestinationId(destObj.id ? destObj.id.toString() : "");
+          setSearchQuery(`${destObj.name}, ${destObj.country}`);
+        }
       })
-      .catch((err) => {
+      .catch(() => {
         setError("Failed to load trip details for editing.");
       })
       .finally(() => setFetchingTrip(false));
   }, [id]);
+
+  const handleSelectDestination = (dest: Destination) => {
+    setSelectedDest(dest);
+    setDestinationId(dest.id.toString());
+    setSearchQuery(`${dest.name}, ${dest.country}`);
+    setIsDropdownOpen(false);
+  };
+
+  const handleClearDestination = () => {
+    setSelectedDest(null);
+    setDestinationId("");
+    setSearchQuery("");
+    setIsDropdownOpen(true);
+    handleSearch("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,23 +179,85 @@ export default function EditTripPage({ params }: { params: Promise<{ id: string 
                   />
                 </div>
 
+                {/* Searchable Destination Autocomplete Selector */}
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">Destination</label>
                   <div className="relative">
-                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-                    <select
-                      value={destinationId}
-                      onChange={(e) => setDestinationId(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
-                    >
-                      <option value="">-- Select Destination (Optional) --</option>
-                      {destinations.map((dest) => (
-                        <option key={dest.id} value={dest.id}>
-                          {dest.name}, {dest.country}
-                        </option>
-                      ))}
-                    </select>
+                    <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3 z-10" />
+                    <input
+                      type="text"
+                      placeholder="Search destination (e.g. Madurai, Paris, Tokyo)..."
+                      value={searchQuery}
+                      onChange={(e) => {
+                        setSearchQuery(e.target.value);
+                        if (selectedDest) {
+                          setSelectedDest(null);
+                          setDestinationId("");
+                        }
+                        setIsDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsDropdownOpen(true)}
+                      className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white text-xs font-medium"
+                    />
+
+                    {isSearching ? (
+                      <Loader2 className="w-4 h-4 text-sky-600 animate-spin absolute right-3 top-3" />
+                    ) : searchQuery ? (
+                      <button
+                        type="button"
+                        onClick={handleClearDestination}
+                        className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 font-bold"
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+
+                    {/* Dropdown Options Overlay */}
+                    {isDropdownOpen && !selectedDest && (
+                      <div
+                        className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-100"
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        {isSearching ? (
+                          <div className="p-4 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                            Searching destinations...
+                          </div>
+                        ) : searchResults.length === 0 ? (
+                          <div className="p-4 text-center text-slate-400 text-xs italic">
+                            No destinations found.
+                          </div>
+                        ) : (
+                          searchResults.map((dest) => (
+                            <button
+                              key={dest.id}
+                              type="button"
+                              onClick={() => handleSelectDestination(dest)}
+                              className="w-full text-left px-4 py-2.5 hover:bg-sky-50 transition flex items-center justify-between text-xs group"
+                            >
+                              <div>
+                                <span className="font-bold text-slate-800 group-hover:text-sky-900 block">
+                                  {dest.name}, {dest.country}
+                                </span>
+                              </div>
+                              {dest.isPopular && (
+                                <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full font-bold">
+                                  Popular
+                                </span>
+                              )}
+                            </button>
+                          ))
+                        )}
+                      </div>
+                    )}
                   </div>
+
+                  {selectedDest && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200 font-bold text-xs">
+                      <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Selected: {selectedDest.name}, {selectedDest.country}</span>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

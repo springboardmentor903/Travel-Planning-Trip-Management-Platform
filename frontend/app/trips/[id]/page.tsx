@@ -4,7 +4,7 @@ import { useEffect, useState, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api, { getErrorMessage } from "@/lib/api";
-import { Trip, Itinerary, Activity, WeatherInfo, Budget, Expense, TripMember, JoinRequest, UserProfile } from "@/types";
+import { Trip, Destination, Itinerary, Activity, WeatherInfo, Budget, Expense, TripMember, JoinRequest, UserProfile } from "@/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import {
@@ -126,12 +126,33 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
     }
   };
 
+  const getEffectiveDestination = (t: Trip | null): Destination | null => {
+    if (!t) return null;
+    if (t.destination && (t.destination.id || t.destination.name)) {
+      return t.destination;
+    }
+    if (t.destinationName || t.destinationId) {
+      return {
+        id: t.destinationId || 0,
+        name: t.destinationName || "",
+        country: t.destinationCountry || "",
+        description: "",
+        weatherInfo: "",
+        isPopular: false,
+      };
+    }
+    return null;
+  };
+
   const fetchTripDetails = async () => {
     setLoading(true);
     setError(null);
     try {
       const tripRes = await api.get(`/trips/${id}`);
-      setTrip(tripRes.data);
+      const rawTrip: Trip = tripRes.data;
+      const effectiveDest = getEffectiveDestination(rawTrip);
+      const tripWithDest = { ...rawTrip, destination: effectiveDest };
+      setTrip(tripWithDest);
 
       // Fetch itineraries for this trip
       const itinRes = await api.get(`/itineraries/trip/${id}`);
@@ -158,9 +179,9 @@ export default function TripDetailsPage({ params }: { params: Promise<{ id: stri
       }
 
       // Fetch weather if destination exists
-      if (tripRes.data.destination?.id) {
+      if (effectiveDest?.id) {
         try {
-          const wRes = await api.get(`/destinations/${tripRes.data.destination.id}/weather`);
+          const wRes = await api.get(`/destinations/${effectiveDest.id}/weather`);
           setWeather(wRes.data);
         } catch (we) {}
       }

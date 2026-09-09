@@ -4,8 +4,11 @@ import com.tripnest.tripnest_backend.entity.Budget;
 import com.tripnest.tripnest_backend.entity.Expense;
 import com.tripnest.tripnest_backend.entity.Trip;
 import com.tripnest.tripnest_backend.entity.User;
+import com.tripnest.tripnest_backend.entity.NotificationType;
+import com.tripnest.tripnest_backend.entity.TripMember;
 import com.tripnest.tripnest_backend.repository.BudgetRepository;
 import com.tripnest.tripnest_backend.repository.ExpenseRepository;
+import com.tripnest.tripnest_backend.repository.TripMemberRepository;
 import com.tripnest.tripnest_backend.repository.TripRepository;
 import com.tripnest.tripnest_backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,8 @@ public class ExpenseService {
     private final BudgetRepository budgetRepository;
     private final UserRepository userRepository;
     private final TripAccessService tripAccessService;
+    private final NotificationService notificationService;
+    private final TripMemberRepository tripMemberRepository;
 
     // ============================================================
     // CREATE EXPENSE
@@ -84,6 +89,7 @@ public class ExpenseService {
 
         Expense saved = expenseRepository.save(expense);
         recalculateBudget(trip);
+        checkBudgetAlerts(trip);
         return saved;
     }
 
@@ -172,6 +178,7 @@ public class ExpenseService {
 
         Expense updated = expenseRepository.save(expense);
         recalculateBudget(expense.getTrip());
+        checkBudgetAlerts(expense.getTrip());
         return updated;
     }
 
@@ -202,6 +209,49 @@ public class ExpenseService {
             budget.setTotalSpent(totalSpent);
             budget.setRemainingBudget(budget.getTotalBudget().subtract(totalSpent));
             budgetRepository.save(budget);
+        });
+    }
+
+    private void checkBudgetAlerts(Trip trip) {
+        if (trip == null || trip.getId() == null) return;
+        budgetRepository.findByTripId(trip.getId()).ifPresent(budget -> {
+            BigDecimal totalBudget = budget.getTotalBudget();
+            BigDecimal totalSpent = budget.getTotalSpent();
+            if (totalBudget == null || totalBudget.compareTo(BigDecimal.ZERO) <= 0 || totalSpent == null) {
+                return;
+            }
+
+            Map<Integer, User> recipientMap = new LinkedHashMap<>();
+            if (trip.getOwner() != null && trip.getOwner().getId() != null) {
+                recipientMap.put(trip.getOwner().getId(), trip.getOwner());
+            }
+            List<TripMember> members = tripMemberRepository.findByTripId(trip.getId());
+            for (TripMember tm : members) {
+                if (tm.getUser() != null && tm.getUser().getId() != null) {
+                    recipientMap.put(tm.getUser().getId(), tm.getUser());
+                }
+            }
+
+            // Check 100% threshold
+            if (totalSpent.compareTo(totalBudget) >= 0) {
+                String title = "Budget Exceeded";
+                String message = String.format("Budget Exceeded: Spending for trip '%s' has reached 100%% of total budget.", trip.getTitle());
+                for (User recipient : recipientMap.values()) {
+                    String dedupeKey = String.format("BUDGET_ALERT:trip-%d:100:user-%d", trip.getId(), recipient.getId());
+                    notificationService.createNotification(recipient, title, message, NotificationType.BUDGET_ALERT, dedupeKey, trip.getId(), null);
+                }
+            }
+
+            // Check 80% threshold
+            BigDecimal threshold80 = totalBudget.multiply(new BigDecimal("0.80"));
+            if (totalSpent.compareTo(threshold80) >= 0) {
+                String title = "Budget Alert";
+                String message = String.format("Budget Alert: Spending for trip '%s' has reached 80%% of total budget.", trip.getTitle());
+                for (User recipient : recipientMap.values()) {
+                    String dedupeKey = String.format("BUDGET_ALERT:trip-%d:80:user-%d", trip.getId(), recipient.getId());
+                    notificationService.createNotification(recipient, title, message, NotificationType.BUDGET_ALERT, dedupeKey, trip.getId(), null);
+                }
+            }
         });
     }
 

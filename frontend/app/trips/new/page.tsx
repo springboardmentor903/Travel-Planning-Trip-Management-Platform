@@ -12,35 +12,114 @@ function CreateTripForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedDestId = searchParams.get("destinationId");
+  const preselectedDestName = searchParams.get("destination");
 
   const [title, setTitle] = useState("");
-  const [destinationId, setDestinationId] = useState<string>(preselectedDestId || "");
+  const [destinationId, setDestinationId] = useState<string>("");
+  const [selectedDest, setSelectedDest] = useState<Destination | null>(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [status, setStatus] = useState("PLANNED");
 
-  const [destinations, setDestinations] = useState<Destination[]>([]);
+  // Search selector state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Destination[]>([]);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+
   const [loading, setLoading] = useState(false);
-  const [fetchingDest, setFetchingDest] = useState(true);
+  const [fetchingPreselect, setFetchingPreselect] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Load preselected destination if destinationId query param exists
   useEffect(() => {
-    api
-      .get("/destinations")
-      .then((res) => {
-        if (Array.isArray(res.data)) {
-          setDestinations(res.data);
-          if (preselectedDestId) {
-            const found = res.data.find((d) => d.id.toString() === preselectedDestId);
-            if (found && !title) {
-              setTitle(`Trip to ${found.name}`);
+    if (preselectedDestId) {
+      setFetchingPreselect(true);
+      api
+        .get(`/destinations/${preselectedDestId}`)
+        .then((res) => {
+          if (res.data) {
+            setSelectedDest(res.data);
+            setDestinationId(res.data.id.toString());
+            setSearchQuery(`${res.data.name}, ${res.data.country}`);
+            if (!title) {
+              setTitle(`Trip to ${res.data.name}`);
             }
           }
+        })
+        .catch(() => {
+          // Fallback to name search if ID lookup fails
+          if (preselectedDestName) {
+            handleSearch(preselectedDestName);
+          }
+        })
+        .finally(() => setFetchingPreselect(false));
+    } else if (preselectedDestName) {
+      setFetchingPreselect(true);
+      api
+        .get(`/destinations/search?query=${encodeURIComponent(preselectedDestName)}`)
+        .then((res) => {
+          if (Array.isArray(res.data) && res.data.length > 0) {
+            const dest = res.data[0];
+            setSelectedDest(dest);
+            setDestinationId(dest.id.toString());
+            setSearchQuery(`${dest.name}, ${dest.country}`);
+            if (!title) {
+              setTitle(`Trip to ${dest.name}`);
+            }
+          }
+        })
+        .catch(() => {})
+        .finally(() => setFetchingPreselect(false));
+    } else {
+      // Pre-load default initial destination list for fast search
+      handleSearch("");
+    }
+  }, [preselectedDestId, preselectedDestName]);
+
+  // Debounced search function
+  const handleSearch = (query: string) => {
+    setIsSearching(true);
+    const url = query.trim()
+      ? `/destinations/search?query=${encodeURIComponent(query.trim())}`
+      : "/destinations/popular";
+
+    api
+      .get(url)
+      .then((res) => {
+        if (Array.isArray(res.data)) {
+          setSearchResults(res.data);
         }
       })
-      .catch(() => {})
-      .finally(() => setFetchingDest(false));
-  }, [preselectedDestId]);
+      .catch((err) => console.log("Failed destination search:", err))
+      .finally(() => setIsSearching(false));
+  };
+
+  useEffect(() => {
+    if (!selectedDest && isDropdownOpen) {
+      const timer = setTimeout(() => {
+        handleSearch(searchQuery);
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [searchQuery, isDropdownOpen, selectedDest]);
+
+  const handleSelectDestination = (dest: Destination) => {
+    setSelectedDest(dest);
+    setDestinationId(dest.id.toString());
+    setSearchQuery(`${dest.name}, ${dest.country}`);
+    setIsDropdownOpen(false);
+    if (!title) {
+      setTitle(`Trip to ${dest.name}`);
+    }
+  };
+
+  const handleClearDestination = () => {
+    setSelectedDest(null);
+    setDestinationId("");
+    setSearchQuery("");
+    setIsDropdownOpen(true);
+    handleSearch("");
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,7 +143,6 @@ function CreateTripForm() {
         destinationId: destinationId ? parseInt(destinationId) : null,
         startDate,
         endDate,
-        status,
       };
 
       const res = await api.post("/trips", payload);
@@ -111,30 +189,86 @@ function CreateTripForm() {
           />
         </div>
 
+        {/* Searchable Destination Selector */}
         <div>
           <label className="block font-semibold text-slate-700 mb-1">Destination</label>
           <div className="relative">
-            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-            <select
-              value={destinationId}
+            <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3 z-10" />
+            <input
+              type="text"
+              placeholder="Search destination (e.g. Paris, Bangalore, Tokyo)..."
+              value={searchQuery}
               onChange={(e) => {
-                setDestinationId(e.target.value);
-                const dest = destinations.find((d) => d.id.toString() === e.target.value);
-                if (dest && !title) {
-                  setTitle(`Trip to ${dest.name}`);
+                setSearchQuery(e.target.value);
+                if (selectedDest) {
+                  setSelectedDest(null);
+                  setDestinationId("");
                 }
+                setIsDropdownOpen(true);
               }}
-              disabled={fetchingDest}
-              className="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
-            >
-              <option value="">-- Select Destination (Optional) --</option>
-              {destinations.map((dest) => (
-                <option key={dest.id} value={dest.id}>
-                  {dest.name}, {dest.country}
-                </option>
-              ))}
-            </select>
+              onFocus={() => setIsDropdownOpen(true)}
+              className="w-full pl-9 pr-8 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white text-xs font-medium"
+            />
+
+            {isSearching || fetchingPreselect ? (
+              <Loader2 className="w-4 h-4 text-sky-600 animate-spin absolute right-3 top-3" />
+            ) : searchQuery ? (
+              <button
+                type="button"
+                onClick={handleClearDestination}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            ) : null}
+
+            {/* Dropdown Options Overlay */}
+            {isDropdownOpen && !selectedDest && (
+              <div
+                className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-56 overflow-y-auto divide-y divide-slate-100"
+                onMouseDown={(e) => e.preventDefault()}
+              >
+                {isSearching ? (
+                  <div className="p-4 text-center text-slate-400 text-xs flex items-center justify-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                    Searching destinations...
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="p-4 text-center text-slate-400 text-xs italic">
+                    No destinations found.
+                  </div>
+                ) : (
+                  searchResults.map((dest) => (
+                    <button
+                      key={dest.id}
+                      type="button"
+                      onClick={() => handleSelectDestination(dest)}
+                      className="w-full text-left px-4 py-2.5 hover:bg-sky-50 transition flex items-center justify-between text-xs group"
+                    >
+                      <div>
+                        <span className="font-bold text-slate-800 group-hover:text-sky-900 block">
+                          {dest.name}, {dest.country}
+                        </span>
+                        <span className="text-[10px] text-slate-400 line-clamp-1">
+                          {dest.description}
+                        </span>
+                      </div>
+                      {dest.isPopular && (
+                        <span className="text-[9px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full shrink-0">
+                          ★ Popular
+                        </span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
+          {selectedDest && (
+            <p className="text-[11px] text-emerald-700 mt-1 font-semibold flex items-center gap-1">
+              ✓ Selected: {selectedDest.name}, {selectedDest.country}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -167,20 +301,6 @@ function CreateTripForm() {
           </div>
         </div>
 
-        <div>
-          <label className="block font-semibold text-slate-700 mb-1">Trip Status</label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
-          >
-            <option value="PLANNED">PLANNED</option>
-            <option value="ONGOING">ONGOING</option>
-            <option value="COMPLETED">COMPLETED</option>
-            <option value="CANCELLED">CANCELLED</option>
-          </select>
-        </div>
-
         <div className="pt-4 flex gap-3">
           <button
             type="button"
@@ -194,7 +314,7 @@ function CreateTripForm() {
             disabled={loading}
             className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold rounded-lg shadow-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
           >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Trip"}
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Trip"}
           </button>
         </div>
       </form>

@@ -62,7 +62,12 @@ public class SecurityConfig {
                                 "/api/auth/**"
                         ).permitAll()
 
-                        // Public destinations
+                        // Public destinations GET, but POST attractions requires ADMINISTRATOR
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/api/destinations/*/attractions"
+                        ).hasRole("ADMINISTRATOR")
+
                         .requestMatchers(
                                 "/api/destinations/**"
                         ).permitAll()
@@ -107,6 +112,7 @@ public class SecurityConfig {
                         "GET",
                         "POST",
                         "PUT",
+                        "PATCH",
                         "DELETE",
                         "OPTIONS"
                 )

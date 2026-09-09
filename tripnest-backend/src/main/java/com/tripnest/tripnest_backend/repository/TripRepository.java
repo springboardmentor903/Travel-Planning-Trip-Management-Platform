@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface TripRepository extends JpaRepository<Trip, Integer> {
     List<Trip> findByOwnerId(Integer ownerId);
+    List<Trip> findByStartDate(java.time.LocalDate startDate);
 }

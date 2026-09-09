@@ -37,7 +37,24 @@ export default function TripsPage() {
       }
       const res = await api.get("/trips/my-trips");
       if (Array.isArray(res.data)) {
-        setTrips(res.data);
+        const mapped = res.data.map((t: Trip) => {
+          if (t.destination && (t.destination.id || t.destination.name)) return t;
+          if (t.destinationName || t.destinationId) {
+            return {
+              ...t,
+              destination: {
+                id: t.destinationId || 0,
+                name: t.destinationName || "",
+                country: t.destinationCountry || "",
+                description: "",
+                weatherInfo: "",
+                isPopular: false,
+              },
+            };
+          }
+          return t;
+        });
+        setTrips(mapped);
       }
     } catch (err: any) {
       if (err.response?.status === 401) {

@@ -26,12 +26,13 @@ export default function RegisterPage() {
       
       // Auto login after registration
       const loginRes = await api.post("/auth/login", { email, password });
-      const { token } = loginRes.data;
+      const { token, role } = loginRes.data;
 
       if (token) {
         localStorage.setItem("token", token);
         localStorage.setItem("userName", name);
         localStorage.setItem("userEmail", email);
+        localStorage.setItem("userRole", role || "TRAVELER");
         router.push("/dashboard");
       } else {
         router.push("/login?registered=true");

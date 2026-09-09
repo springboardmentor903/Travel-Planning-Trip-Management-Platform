@@ -32,4 +32,11 @@ public interface ExpenseRepository extends JpaRepository<Expense, Integer> {
             ORDER BY e.category
             """)
     List<Object[]> getCategorySummary(@Param("tripId") Integer tripId);
+
+    // Calculate total expenses across all trips on platform
+    @Query("""
+            SELECT COALESCE(SUM(e.amount), 0)
+            FROM Expense e
+            """)
+    BigDecimal getTotalExpensesAcrossAllTrips();
 }

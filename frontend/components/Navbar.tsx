@@ -3,19 +3,26 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Plane, Compass, Calendar, History, User, Settings, LogOut, LayoutDashboard } from "lucide-react";
+import { Plane, Compass, Calendar, History, User, Settings, LogOut, LayoutDashboard, ShieldCheck } from "lucide-react";
+
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [userName, setUserName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
     const storedName = localStorage.getItem("userName");
+    const storedRole = localStorage.getItem("userRole");
     if (storedName) {
       setUserName(storedName);
+    }
+    if (storedRole) {
+      setUserRole(storedRole);
     }
   }, []);
 
@@ -23,11 +30,13 @@ export default function Navbar() {
     localStorage.removeItem("token");
     localStorage.removeItem("userName");
     localStorage.removeItem("userEmail");
+    localStorage.removeItem("userRole");
     setUserName(null);
+    setUserRole(null);
     router.push("/login");
   };
 
-  const navLinks = [
+  const travelerNavLinks = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "My Trips", href: "/trips", icon: Calendar },
     { name: "Destinations", href: "/destinations", icon: Compass },
@@ -36,13 +45,22 @@ export default function Navbar() {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
+  const adminNavLinks = [
+    { name: "Admin Panel", href: "/admin/dashboard", icon: ShieldCheck },
+    { name: "Profile", href: "/profile", icon: User },
+    { name: "Settings", href: "/settings", icon: Settings },
+  ];
+
+  const navLinks = userRole === "ADMINISTRATOR" ? adminNavLinks : travelerNavLinks;
+  const brandHref = userRole === "ADMINISTRATOR" ? "/admin/dashboard" : "/dashboard";
+
   if (!isMounted) return null;
 
   return (
     <header className="bg-sky-700 text-white shadow-md sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
-          <Link href="/dashboard" className="flex items-center gap-2 text-xl font-black tracking-wide hover:opacity-90">
+          <Link href={brandHref} className="flex items-center gap-2 text-xl font-black tracking-wide hover:opacity-90">
             <Plane className="w-6 h-6 text-amber-400" />
             <span>Trip<span className="text-amber-400">Nest</span></span>
           </Link>
@@ -72,7 +90,8 @@ export default function Navbar() {
 
           <div className="flex items-center gap-3">
             {userName ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <NotificationBell />
                 <Link href="/profile" className="hidden sm:flex items-center gap-2 text-xs font-medium bg-sky-800/80 px-3 py-1.5 rounded-full border border-sky-600 hover:bg-sky-800">
                   <div className="w-6 h-6 rounded-full bg-amber-400 text-sky-950 font-bold flex items-center justify-center text-xs">
                     {userName.charAt(0).toUpperCase()}

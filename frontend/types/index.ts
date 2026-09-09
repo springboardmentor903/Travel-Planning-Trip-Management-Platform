@@ -39,6 +39,9 @@ export interface Trip {
   ownerId?: number;
   ownerName?: string;
   destination: Destination | null;
+  destinationId?: number;
+  destinationName?: string;
+  destinationCountry?: string;
   startDate: string;
   endDate: string;
   status: "PLANNED" | "ONGOING" | "COMPLETED" | "CANCELLED" | string;
@@ -52,6 +55,7 @@ export interface UserProfile {
   bio?: string;
   travelPreferences?: string;
   favoriteDestinations?: string;
+  preferredCurrency?: string;
   createdAt?: string;
 }
 
@@ -97,4 +101,95 @@ export interface JoinRequest {
   userEmail: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt?: string;
+}
+
+export interface AppNotification {
+  id: number;
+  title: string;
+  message: string;
+  type: "MEMBER_ADDED" | "JOIN_REQUEST" | "JOIN_REQUEST_APPROVED" | "JOIN_REQUEST_REJECTED" | "TRIP_REMINDER" | "ACTIVITY_REMINDER" | "BUDGET_ALERT" | "TRAVEL_UPDATE" | "NEW_TRIP";
+  read: boolean;
+  createdAt: string;
+  tripId?: number;
+  activityId?: number;
+}
+
+export interface Attraction {
+  id: number;
+  name: string;
+  shortDescription: string;
+  destinationId: number;
+}
+
+export interface VisitedDestination {
+  destinationId: number;
+  destinationName: string;
+  country: string;
+  visitCount: number;
+}
+
+export interface TravelerDashboardData {
+  upcomingTrips: Trip[];
+  budgetOverview: {
+    totalBudget: number;
+    totalSpent: number;
+    remainingBudget: number;
+  };
+  expenseSummary: Record<string, number>;
+  favoriteDestinations: string[];
+  mostVisitedDestinations: VisitedDestination[];
+  travelStats: {
+    totalTripsTaken: number;
+    uniqueDestinationsVisited: number;
+    totalAmountSpent?: number;
+  };
+}
+
+export interface AdminTripMember {
+  userId: number;
+  name: string;
+  email: string;
+  role: string;
+}
+
+export interface AdminTripDetail {
+  id: number;
+  title: string;
+  destinationId?: number;
+  destinationName: string;
+  destinationCountry: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  ownerId?: number;
+  ownerName: string;
+  ownerEmail: string;
+  memberCount: number;
+  members: AdminTripMember[];
+}
+
+export interface AdminDashboardData {
+  userAnalytics: {
+    totalUsers: number;
+    travelerUsers?: number;
+    adminUsers?: number;
+  };
+  tripAnalytics: {
+    totalTrips: number;
+    activeTrips: number;
+    completedTrips: number;
+    plannedTrips: number;
+    cancelledTrips?: number;
+  };
+  destinationAnalytics: {
+    destinationId: number;
+    destinationName: string;
+    country: string;
+    tripCount: number;
+  }[];
+  platformStats: {
+    totalExpensesLogged: number;
+    totalNotificationsSent: number;
+  };
+  allTrips: AdminTripDetail[];
 }

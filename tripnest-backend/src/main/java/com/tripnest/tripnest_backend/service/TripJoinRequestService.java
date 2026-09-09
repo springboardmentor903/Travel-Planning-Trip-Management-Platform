@@ -21,6 +21,7 @@ public class TripJoinRequestService {
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
     private final TripAccessService tripAccessService;
+    private final NotificationService notificationService;
 
     @Transactional
     public JoinRequestResponse createJoinRequest(Integer tripId, String userEmail) {
@@ -49,6 +50,17 @@ public class TripJoinRequestService {
                 .build();
 
         TripJoinRequest saved = tripJoinRequestRepository.save(request);
+
+        User tripOwner = trip.getOwner();
+        if (tripOwner == null || tripOwner.getId() == null) {
+            throw new RuntimeException("Trip owner not found for trip ID: " + tripId);
+        }
+
+        // Send notification to trip owner/admin
+        String title = "New Join Request";
+        String message = user.getName() + " has requested to join your trip '" + trip.getTitle() + "'.";
+        notificationService.createNotification(tripOwner, title, message, NotificationType.JOIN_REQUEST, null, trip.getId(), null);
+
         return mapToResponse(saved);
     }
 
@@ -89,9 +101,13 @@ public class TripJoinRequestService {
         request.setStatus(newStatus);
         TripJoinRequest saved = tripJoinRequestRepository.save(request);
 
+        User requester = request.getUser();
+        if (requester == null || requester.getId() == null) {
+            throw new RuntimeException("Requester user not found for join request: " + requestId);
+        }
+
         // If approved, automatically add user to trip members
         if (newStatus == JoinRequestStatus.APPROVED) {
-            User requester = request.getUser();
             if (!tripMemberRepository.existsByTripIdAndUserId(tripId, requester.getId())) {
                 TripMember member = TripMember.builder()
                         .trip(trip)
@@ -100,6 +116,13 @@ public class TripJoinRequestService {
                         .build();
                 tripMemberRepository.save(member);
             }
+            String title = "Join Request Approved";
+            String message = "Your request to join '" + trip.getTitle() + "' has been approved.";
+            notificationService.createNotification(requester, title, message, NotificationType.JOIN_REQUEST_APPROVED, null, trip.getId(), null);
+        } else if (newStatus == JoinRequestStatus.REJECTED) {
+            String title = "Join Request Rejected";
+            String message = "Your request to join '" + trip.getTitle() + "' has been rejected.";
+            notificationService.createNotification(requester, title, message, NotificationType.JOIN_REQUEST_REJECTED, null, trip.getId(), null);
         }
 
         return mapToResponse(saved);

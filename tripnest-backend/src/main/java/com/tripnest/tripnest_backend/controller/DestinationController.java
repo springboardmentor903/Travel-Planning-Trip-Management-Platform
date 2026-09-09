@@ -20,6 +20,11 @@ public class DestinationController {
         return ResponseEntity.ok(destinationService.getAllDestinations());
     }
 
+    @GetMapping("/popular")
+    public ResponseEntity<List<DestinationResponse>> getPopularDestinations() {
+        return ResponseEntity.ok(destinationService.getPopularDestinations());
+    }
+
     @GetMapping("/search")
     public ResponseEntity<List<DestinationResponse>> searchDestinations(@RequestParam(required = false) String query) {
         return ResponseEntity.ok(destinationService.searchDestinations(query));

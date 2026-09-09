@@ -38,8 +38,8 @@ export default function ProfilePage() {
         setProfile(res.data);
         setName(res.data.name || "");
         setBio(res.data.bio || "");
-        setTravelPreferences(res.data.travelPreferences || "Adventure, Cultural, Beach, Budget");
-        setFavoriteDestinations(res.data.favoriteDestinations || "Paris, Bali, Tokyo, Rome");
+        setTravelPreferences(res.data.travelPreferences || "");
+        setFavoriteDestinations(res.data.favoriteDestinations || "");
       }
     } catch (err: any) {
       if (err.response?.status === 401) {
@@ -248,36 +248,46 @@ export default function ProfilePage() {
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                           Preferred Travel Types
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(profile.travelPreferences || "Adventure, Cultural, Budget")
-                            .split(",")
-                            .map((pref, i) => (
-                              <span
-                                key={i}
-                                className="bg-sky-50 text-sky-800 font-bold text-[11px] px-3 py-1 rounded-lg border border-sky-100"
-                              >
-                                ✈️ {pref.trim()}
-                              </span>
-                            ))}
-                        </div>
+                        {profile.travelPreferences && profile.travelPreferences.trim().length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {profile.travelPreferences
+                              .split(",")
+                              .filter((p) => p.trim().length > 0)
+                              .map((pref, i) => (
+                                <span
+                                  key={i}
+                                  className="bg-sky-50 text-sky-800 font-bold text-[11px] px-3 py-1 rounded-lg border border-sky-100"
+                                >
+                                  ✈️ {pref.trim()}
+                                </span>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 italic">No travel preferences added yet.</p>
+                        )}
                       </div>
 
                       <div>
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                           Favourite Destinations
                         </span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {(profile.favoriteDestinations || "Paris, Bali, Tokyo")
-                            .split(",")
-                            .map((dest, i) => (
-                              <span
-                                key={i}
-                                className="bg-amber-50 text-amber-900 font-bold text-[11px] px-3 py-1 rounded-lg border border-amber-200"
-                              >
-                                📍 {dest.trim()}
-                              </span>
-                            ))}
-                        </div>
+                        {profile.favoriteDestinations && profile.favoriteDestinations.trim().length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {profile.favoriteDestinations
+                              .split(",")
+                              .filter((d) => d.trim().length > 0)
+                              .map((dest, i) => (
+                                <span
+                                  key={i}
+                                  className="bg-amber-50 text-amber-900 font-bold text-[11px] px-3 py-1 rounded-lg border border-amber-200"
+                                >
+                                  📍 {dest.trim()}
+                                </span>
+                              ))}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400 italic">No favorite destinations added yet.</p>
+                        )}
                       </div>
                     </div>
                   </div>

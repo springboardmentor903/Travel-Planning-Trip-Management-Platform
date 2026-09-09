@@ -45,8 +45,7 @@ export default function AccountSettingsPage() {
   const [savingProfile, setSavingProfile] = useState(false);
 
   // App Settings State
-  const [emailNotifications, setEmailNotifications] = useState(true);
-  const [currency, setCurrency] = useState("USD ($)");
+  const [currency, setCurrency] = useState("USD");
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -62,8 +61,9 @@ export default function AccountSettingsPage() {
           setProfile(res.data);
           setName(res.data.name || "");
           setBio(res.data.bio || "");
-          setTravelPreferences(res.data.travelPreferences || "Adventure, Cultural, Beach, Budget");
-          setFavoriteDestinations(res.data.favoriteDestinations || "Paris, Bali, Tokyo, Rome");
+          setTravelPreferences(res.data.travelPreferences || "");
+          setFavoriteDestinations(res.data.favoriteDestinations || "");
+          setCurrency(res.data.preferredCurrency || "USD");
         }
       })
       .catch((err) => {
@@ -83,15 +83,43 @@ export default function AccountSettingsPage() {
         bio,
         travelPreferences,
         favoriteDestinations,
+        preferredCurrency: currency,
       });
 
       setProfile(res.data);
-      localStorage.setItem("userName", res.data.name);
+      if (res.data.name) localStorage.setItem("userName", res.data.name);
       setStatusMsg({ type: "success", message: "Account profile and preferences updated!" });
     } catch (err: any) {
       setStatusMsg({
         type: "error",
         message: getErrorMessage(err, "Failed to update profile settings."),
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
+  const handleSaveAppPreferences = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingProfile(true);
+    setStatusMsg(null);
+
+    try {
+      const res = await api.put("/user/profile", {
+        name,
+        bio,
+        travelPreferences,
+        favoriteDestinations,
+        preferredCurrency: currency,
+      });
+
+      setProfile(res.data);
+      setCurrency(res.data.preferredCurrency || "USD");
+      setStatusMsg({ type: "success", message: "Application preferences saved!" });
+    } catch (err: any) {
+      setStatusMsg({
+        type: "error",
+        message: getErrorMessage(err, "Failed to save application preferences."),
       });
     } finally {
       setSavingProfile(false);
@@ -360,25 +388,12 @@ export default function AccountSettingsPage() {
 
                 {/* Tab 4: App Preferences */}
                 {activeTab === "app" && (
-                  <div className="space-y-6 text-xs max-w-lg">
+                  <form onSubmit={handleSaveAppPreferences} className="space-y-6 text-xs max-w-lg">
                     <div className="border-b border-slate-100 pb-3 mb-4">
                       <h3 className="text-base font-bold text-sky-950 flex items-center gap-2">
                         <SlidersHorizontal className="w-4 h-4 text-sky-600" /> Application Preferences
                       </h3>
-                      <p className="text-slate-500 text-[11px] mt-0.5">Customize your display and notification settings</p>
-                    </div>
-
-                    <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div>
-                        <span className="font-bold text-slate-900 block">Email Itinerary Updates</span>
-                        <span className="text-[10px] text-slate-500">Receive email alerts when trips or activities change</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={emailNotifications}
-                        onChange={(e) => setEmailNotifications(e.target.checked)}
-                        className="w-4 h-4 accent-sky-600 cursor-pointer"
-                      />
+                      <p className="text-slate-500 text-[11px] mt-0.5">Customize your currency and display settings</p>
                     </div>
 
                     <div>
@@ -386,26 +401,31 @@ export default function AccountSettingsPage() {
                       <select
                         value={currency}
                         onChange={(e) => setCurrency(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+                        className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white font-semibold text-xs text-slate-800"
                       >
-                        <option value="USD ($)">USD ($) - US Dollar</option>
-                        <option value="EUR (€)">EUR (€) - Euro</option>
-                        <option value="GBP (£)">GBP (£) - British Pound</option>
-                        <option value="JPY (¥)">JPY (¥) - Japanese Yen</option>
-                        <option value="INR (₹)">INR (₹) - Indian Rupee</option>
+                        <option value="USD">USD — US Dollar</option>
+                        <option value="EUR">EUR — Euro</option>
+                        <option value="GBP">GBP — British Pound</option>
+                        <option value="INR">INR — Indian Rupee</option>
+                        <option value="JPY">JPY — Japanese Yen</option>
+                        <option value="AUD">AUD — Australian Dollar</option>
+                        <option value="CAD">CAD — Canadian Dollar</option>
+                        <option value="SGD">SGD — Singapore Dollar</option>
+                        <option value="AED">AED — UAE Dirham</option>
+                        <option value="CHF">CHF — Swiss Franc</option>
                       </select>
                     </div>
 
                     <div className="pt-2">
                       <button
-                        type="button"
-                        onClick={() => setStatusMsg({ type: "success", message: "Application preferences saved!" })}
-                        className="inline-flex items-center gap-2 bg-sky-700 hover:bg-sky-800 text-white font-bold px-6 py-2.5 rounded-xl shadow-md transition"
+                        type="submit"
+                        disabled={savingProfile}
+                        className="inline-flex items-center gap-2 bg-sky-700 hover:bg-sky-800 text-white font-bold px-6 py-2.5 rounded-xl shadow-md transition disabled:opacity-50"
                       >
-                        Save Settings
+                        {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Settings"}
                       </button>
                     </div>
-                  </div>
+                  </form>
                 )}
               </>
             )}

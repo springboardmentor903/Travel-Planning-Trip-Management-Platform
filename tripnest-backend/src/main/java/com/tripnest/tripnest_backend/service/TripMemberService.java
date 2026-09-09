@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.tripnest.tripnest_backend.entity.NotificationType;
+
 @Service
 @RequiredArgsConstructor
 public class TripMemberService {
@@ -22,6 +24,7 @@ public class TripMemberService {
     private final TripRepository tripRepository;
     private final UserRepository userRepository;
     private final TripAccessService tripAccessService;
+    private final NotificationService notificationService;
 
     public TripMemberResponse addMemberByEmail(Integer tripId, String email, TripRole role, String actorEmail) {
         User actor = getUserByEmail(actorEmail);
@@ -50,6 +53,12 @@ public class TripMemberService {
                 .build();
 
         TripMember saved = tripMemberRepository.save(member);
+
+        // Send notification to newly added member
+        String title = "Added to Trip";
+        String message = "You have been added to the trip '" + trip.getTitle() + "'.";
+        notificationService.createNotification(targetUser, title, message, NotificationType.MEMBER_ADDED, null, trip.getId(), null);
+
         return mapToResponse(saved);
     }
 

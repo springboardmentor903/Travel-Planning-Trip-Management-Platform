@@ -10,4 +10,5 @@ import java.util.List;
 public interface ItineraryRepository extends JpaRepository<Itinerary, Integer> {
 
     List<Itinerary> findByTripIdOrderByDayNumberAsc(Integer tripId);
+    List<Itinerary> findByDayDate(java.time.LocalDate dayDate);
 }

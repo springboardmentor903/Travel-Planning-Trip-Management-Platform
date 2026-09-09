@@ -22,13 +22,19 @@ export default function LoginPage() {
 
     try {
       const response = await api.post("/auth/login", { email, password });
-      const { token, name, email: userEmail } = response.data;
+      const { token, name, email: userEmail, role } = response.data;
 
       if (token) {
         localStorage.setItem("token", token);
         localStorage.setItem("userName", name || "Traveler");
         localStorage.setItem("userEmail", userEmail || email);
-        router.push("/dashboard");
+        localStorage.setItem("userRole", role || "TRAVELER");
+
+        if (role === "ADMINISTRATOR") {
+          router.push("/admin/dashboard");
+        } else {
+          router.push("/dashboard");
+        }
       } else {
         setError("Invalid response from server. Please try again.");
       }
