@@ -128,6 +128,15 @@ public class TripJoinRequestService {
         return mapToResponse(saved);
     }
 
+    @Transactional(readOnly = true)
+    public List<JoinRequestResponse> getMyJoinRequests(String userEmail) {
+        User user = getUserByEmail(userEmail);
+        return tripJoinRequestRepository.findByUserId(user.getId())
+                .stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found: " + email));
@@ -139,15 +148,25 @@ public class TripJoinRequestService {
     }
 
     private JoinRequestResponse mapToResponse(TripJoinRequest req) {
-        return new JoinRequestResponse(
-                req.getId(),
-                req.getTrip().getId(),
-                req.getTrip().getTitle(),
-                req.getUser().getId(),
-                req.getUser().getName(),
-                req.getUser().getEmail(),
-                req.getStatus(),
-                req.getCreatedAt()
-        );
+        Trip trip = req.getTrip();
+        String destName = (trip.getDestination() != null) ? trip.getDestination().getName() : null;
+        String destCountry = (trip.getDestination() != null) ? trip.getDestination().getCountry() : null;
+        String ownerName = (trip.getOwner() != null) ? trip.getOwner().getName() : null;
+
+        return JoinRequestResponse.builder()
+                .id(req.getId())
+                .tripId(trip.getId())
+                .tripTitle(trip.getTitle())
+                .userId(req.getUser().getId())
+                .userName(req.getUser().getName())
+                .userEmail(req.getUser().getEmail())
+                .status(req.getStatus())
+                .createdAt(req.getCreatedAt())
+                .destinationName(destName)
+                .destinationCountry(destCountry)
+                .startDate(trip.getStartDate())
+                .endDate(trip.getEndDate())
+                .ownerName(ownerName)
+                .build();
     }
 }

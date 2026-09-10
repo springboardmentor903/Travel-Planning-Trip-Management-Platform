@@ -101,6 +101,11 @@ export interface JoinRequest {
   userEmail: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   createdAt?: string;
+  destinationName?: string;
+  destinationCountry?: string;
+  startDate?: string;
+  endDate?: string;
+  ownerName?: string;
 }
 
 export interface AppNotification {

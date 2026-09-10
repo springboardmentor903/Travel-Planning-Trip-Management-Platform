@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import api, { getErrorMessage } from "@/lib/api";
-import { Trip } from "@/types";
+import { Trip, JoinRequest } from "@/types";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Plus, Search, Calendar, MapPin, Eye, Edit2, Trash2, Loader2, AlertCircle, UserPlus, CheckCircle2, X } from "lucide-react";
@@ -17,6 +17,10 @@ export default function TripsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Requested Trips State
+  const [requestedTrips, setRequestedTrips] = useState<JoinRequest[]>([]);
+  const [requestedLoading, setRequestedLoading] = useState(true);
 
   // Search Trips & Join Request Flow State
   const [showSearchJoinModal, setShowSearchJoinModal] = useState(false);
@@ -67,8 +71,25 @@ export default function TripsPage() {
     }
   };
 
+  const fetchRequestedTrips = async () => {
+    setRequestedLoading(true);
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      const res = await api.get("/trips/my-requests");
+      if (Array.isArray(res.data)) {
+        setRequestedTrips(res.data);
+      }
+    } catch (err: any) {
+      console.error("Failed to load requested trips:", err);
+    } finally {
+      setRequestedLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchTrips();
+    fetchRequestedTrips();
   }, []);
 
   const handleDelete = async (id: number) => {
@@ -105,6 +126,7 @@ export default function TripsPage() {
     try {
       await api.post(`/trips/${tripId}/join-request`);
       setJoinMessage({ type: "success", text: "Join request sent successfully! The trip admin will review your request." });
+      fetchRequestedTrips();
     } catch (err: any) {
       setJoinMessage({ type: "error", text: getErrorMessage(err, "Failed to send join request.") });
     } finally {
@@ -122,6 +144,14 @@ export default function TripsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const filteredRequestedTrips = requestedTrips.filter((req) => {
+    const matchesSearch =
+      req.tripTitle.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (req.destinationName && req.destinationName.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return matchesSearch;
+  });
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "PLANNED":
@@ -134,6 +164,32 @@ export default function TripsPage() {
         return "bg-red-100 text-red-800 border-red-200";
       default:
         return "bg-slate-100 text-slate-800 border-slate-200";
+    }
+  };
+
+  const getRequestStatusBadge = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "bg-amber-100 text-amber-800 border-amber-200";
+      case "APPROVED":
+        return "bg-emerald-100 text-emerald-800 border-emerald-200";
+      case "REJECTED":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-slate-100 text-slate-800 border-slate-200";
+    }
+  };
+
+  const getRequestStatusLabel = (status: string) => {
+    switch (status) {
+      case "PENDING":
+        return "Pending";
+      case "APPROVED":
+        return "Approved";
+      case "REJECTED":
+        return "Rejected";
+      default:
+        return status;
     }
   };
 
@@ -186,7 +242,7 @@ export default function TripsPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {["ALL", "PLANNED", "ONGOING", "COMPLETED", "CANCELLED"].map((status) => (
+            {["ALL", "PLANNED", "ONGOING", "COMPLETED", "CANCELLED", "REQUESTED"].map((status) => (
               <button
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -203,7 +259,83 @@ export default function TripsPage() {
         </div>
 
         {/* Content */}
-        {loading ? (
+        {statusFilter === "REQUESTED" ? (
+          requestedLoading ? (
+            <div className="py-20 text-center text-slate-500">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-sky-600" />
+              <p className="text-xs">Loading requested trips...</p>
+            </div>
+          ) : filteredRequestedTrips.length === 0 ? (
+            <div className="bg-white rounded-2xl p-12 text-center border border-sky-100 shadow-sm max-w-lg mx-auto my-8 space-y-4">
+              <Calendar className="w-12 h-12 text-sky-300 mx-auto" />
+              <div>
+                <h3 className="text-lg font-bold text-sky-950 mb-1">No Trip Requests Found</h3>
+                <p className="text-xs text-slate-500">
+                  {searchQuery
+                    ? "No trip requests matched your search filter."
+                    : "No trip requests yet."}
+                </p>
+              </div>
+              <div className="flex items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={() => setShowSearchJoinModal(true)}
+                  className="inline-flex items-center gap-1.5 bg-sky-100 hover:bg-sky-200 text-sky-800 px-4 py-2 rounded-xl font-bold text-xs transition"
+                >
+                  <UserPlus className="w-4 h-4" /> Find Trips to Join
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredRequestedTrips.map((req) => (
+                <div
+                  key={`requested-trip-${req.id}`}
+                  className="bg-white rounded-2xl border border-sky-100 shadow-sm hover:shadow-md transition flex flex-col overflow-hidden"
+                >
+                  <div className="p-6 flex-1 flex flex-col justify-between">
+                    <div>
+                      <div className="flex items-start justify-between gap-2 mb-3">
+                        <div>
+                          <h3 className="font-bold text-lg text-sky-950 line-clamp-1">{req.tripTitle}</h3>
+                          {req.ownerName && (
+                            <span className="text-[10px] text-slate-400">Trip Owner: {req.ownerName}</span>
+                          )}
+                        </div>
+                        <span
+                          className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border shrink-0 ${getRequestStatusBadge(
+                            req.status
+                          )}`}
+                        >
+                          {getRequestStatusLabel(req.status)}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 text-xs text-slate-600 mb-4">
+                        {req.destinationName && (
+                          <div className="flex items-center gap-1.5 font-medium text-sky-700">
+                            <MapPin className="w-3.5 h-3.5 shrink-0 text-amber-500" />
+                            <span>
+                              {req.destinationName}
+                              {req.destinationCountry ? `, ${req.destinationCountry}` : ""}
+                            </span>
+                          </div>
+                        )}
+                        {(req.startDate || req.endDate) && (
+                          <div className="flex items-center gap-1.5">
+                            <Calendar className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                            <span>
+                              {req.startDate || "N/A"} to {req.endDate || "N/A"}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : loading ? (
           <div className="py-20 text-center text-slate-500">
             <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-sky-600" />
             <p className="text-xs">Loading your trips...</p>

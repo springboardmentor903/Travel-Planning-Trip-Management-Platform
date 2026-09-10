@@ -60,4 +60,15 @@ public class TripJoinRequestController {
         );
         return ResponseEntity.ok(response);
     }
+
+    // LIST JOIN REQUESTS SUBMITTED BY CURRENT LOGGED-IN USER
+    @GetMapping({"/my-requests", "/join-requests/my-requests"})
+    public ResponseEntity<List<JoinRequestResponse>> getMyJoinRequests(
+            Authentication authentication) {
+
+        List<JoinRequestResponse> requests = tripJoinRequestService.getMyJoinRequests(
+                authentication.getName()
+        );
+        return ResponseEntity.ok(requests);
+    }
 }

@@ -47,6 +47,14 @@ export default function AccountSettingsPage() {
   // App Settings State
   const [currency, setCurrency] = useState("USD");
 
+  const isAdmin = Boolean(profile?.role && profile.role.toUpperCase().includes("ADMIN"));
+
+  useEffect(() => {
+    if (isAdmin && activeTab === "preferences") {
+      setActiveTab("profile");
+    }
+  }, [isAdmin, activeTab]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -195,7 +203,7 @@ export default function AccountSettingsPage() {
             {[
               { id: "profile", label: "Profile Info", icon: User },
               { id: "security", label: "Security & Password", icon: Lock },
-              { id: "preferences", label: "Travel Preferences", icon: Heart },
+              ...(!isAdmin ? [{ id: "preferences", label: "Travel Preferences", icon: Heart }] : []),
               { id: "app", label: "App Preferences", icon: SlidersHorizontal },
             ].map((tab) => {
               const Icon = tab.icon;
@@ -343,7 +351,7 @@ export default function AccountSettingsPage() {
                 )}
 
                 {/* Tab 3: Travel Preferences */}
-                {activeTab === "preferences" && (
+                {!isAdmin && activeTab === "preferences" && (
                   <form onSubmit={handleUpdateProfile} className="space-y-5 text-xs">
                     <div className="border-b border-slate-100 pb-3 mb-4">
                       <h3 className="text-base font-bold text-sky-950 flex items-center gap-2">
