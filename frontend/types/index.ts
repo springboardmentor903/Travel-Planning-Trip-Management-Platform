@@ -172,6 +172,12 @@ export interface AdminTripDetail {
   memberCount: number;
   members: AdminTripMember[];
 }
+export interface AdminUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+}
 
 export interface AdminDashboardData {
   userAnalytics: {
